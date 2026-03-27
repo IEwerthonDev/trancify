@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Trançify"
+version = "1.0.0"
+id = "artifacts/trancify"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 5173
+
+[services.development]
+run = "pnpm --filter @workspace/trancify run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trancify", "run", "build" ]
+publicDir = "artifacts/trancify/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "5173"
+BASE_PATH = "/"

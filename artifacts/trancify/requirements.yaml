@@ -1,0 +1,19 @@
+packages:
+  "framer-motion": "For page transitions, smooth modal appearances, and engaging micro-interactions."
+  "recharts": "Required for building the revenue and appointment reporting charts in the dashboard."
+  "date-fns": "For robust date formatting, parsing, and manipulation across the booking and calendar features."
+  "clsx": "Utility for conditionally joining classNames together."
+  "tailwind-merge": "Utility to merge Tailwind CSS classes without style conflicts."
+  "lucide-react": "Beautiful, consistent icons for the UI."
+
+images:
+  - path: "artifacts/trancify/public/images/login-hero.png"
+    description: "A beautiful, warm, modern abstract background with smooth gradients in wine red, deep burgundy, and soft cream tones. Subtle textures, elegant and premium, representing beauty and afro-hair culture."
+    aspect_ratio: "16:9"
+  - path: "artifacts/trancify/public/images/pattern-bg.png"
+    description: "Subtle geometric afro-inspired pattern in very light cream and beige tones, seamless, to be used as a soft background texture."
+    aspect_ratio: "1:1"
+
+notes:
+  - Auth token is expected to be stored in localStorage as 'trancify_token'.
+  - The `@workspace/api-client-react` customFetch is assumed to automatically attach the 'Authorization: Bearer <token>' header if it exists.

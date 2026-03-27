@@ -1,0 +1,522 @@
+# 🚀 Prompt para Replit — SaaS Multi-Tenant de Agendamento para Trancistas -> **TRANÇIFY**
+
+## Papel da IA
+Você é um **engenheiro de software fullstack sênior**, especialista em:
+
+- SaaS multi-tenant
+- arquitetura escalável
+- Symfony + PHP
+- React + TypeScript
+- PostgreSQL
+- UX/UI
+- DDD
+- Clean Architecture
+- SOLID
+- boas práticas de produto
+
+Sua missão é **desenvolver este projeto com mentalidade de produto real**, evitando soluções improvisadas, hardcodes e arquitetura frágil.
+
+---
+
+# 1. Objetivo do Projeto
+
+Desenvolver um **SaaS multi-tenant de agendamento para salões especializados em tranças**, contendo:
+
+- frontend moderno e responsivo
+- backend robusto
+- banco de dados relacional
+- autenticação
+- painel do tenant
+- painel do super admin
+- fluxo completo de agendamento do cliente
+- integração com WhatsApp
+
+# 2. Aparência
+
+Frontend moderno, cores em uma paleta vinho para botões e elementos com outra cor clara para o fundo, estética afro, se possível uma foto de uma mulher negra usando trança, foto do pescoço pra cima, e pode ser uma mulher fora do padrão de beleza (a ideia é trazer o real, no conceito: pessoas reais, corpos reais), design moderno e gostaria que o login seja feito de forma simples como é feito no https://www.oquegastei.com/
+
+Estetica afro, se for usar algum emoji que nãop seja emoji de tesoura ou algo que remete mais a barbeiro, é especificamente para trancistas
+
+---
+
+# 3. Diretrizes Técnicas Obrigatórias
+
+## Arquitetura
+O projeto deve seguir obrigatoriamente:
+
+- Arquitetura Limpa
+- DDD
+- SOLID
+- separação clara entre domínio, aplicação, infraestrutura e interface
+- código limpo e escalável
+- evitar hardcode
+- evitar lógica de negócio espalhada em controller ou componentes de UI
+- multi-tenant desde a base do sistema
+
+## Forma de execução
+Você **não deve gerar tudo de uma vez**.
+
+Implemente de forma **incremental**, seguindo esta ordem:
+
+1. Estrutura do projeto
+2. Modelagem do banco
+3. Backend base
+4. Autenticação
+5. Multi-tenant
+6. Frontend base
+7. Fluxo de agendamento
+8. Dashboard do tenant
+9. Dashboard do super admin
+10. Integrações
+11. Deploy
+12. Documentação final
+
+## Regras de trabalho
+- verificar o que já foi feito antes de continuar
+- não repetir código já existente
+- continuar sempre da próxima tarefa
+- manter o projeto consistente
+- se encontrar algo pronto, reutilizar e evoluir
+- remover hardcodes
+- tornar tudo agnóstico para multi-tenant
+
+---
+
+# 4. Tipos de Usuário
+
+## 4.1 Tenant
+O tenant representa a trancista / cabeleireira / dona do salão.
+
+### O tenant deve ter login próprio e dashboard administrativo
+O tenant pode:
+
+- configurar o salão
+- gerenciar agenda
+- definir preços
+- visualizar lucro
+- editar disponibilidade
+- customizar tema
+- alterar WhatsApp
+- alterar nome do salão
+- alterar logotipo
+- editar/excluir agendamentos
+- alterar duração dos serviços
+- exportar relatórios
+
+---
+
+## 4.2 Super Admin
+O super admin sou eu, com acesso global à plataforma.
+
+### O super admin pode:
+- adicionar tenant
+- editar tenant
+- bloquear acesso imediatamente
+- bloquear acesso programado
+- excluir tenant
+- visualizar quanto cada tenant paga por mês
+- visualizar faturamento total da plataforma
+- visualizar número de tenants
+- visualizar número total de agendamentos
+- visualizar gráficos de crescimento mensal
+- controlar planos
+- habilitar/desabilitar features por plano
+- resetar senha de tenant
+- ver relatórios financeiros do tenant
+- ver logs de atividade do tenant
+
+---
+
+## 4.3 Cliente Final
+O cliente final **não possui login**.
+
+### O cliente final pode:
+- acessar o link exclusivo do tenant
+- escolher a trança
+- escolher o dia
+- escolher o horário
+- preencher formulário
+- enviar fotos de referência
+- editar o próprio agendamento via link/token
+- receber mensagem automática no WhatsApp
+
+---
+
+# 5. Regras de Negócio
+
+## 5.1 Disponibilidade definida pelo Tenant
+- o tenant pode definir os dias disponíveis para atendimento
+- o cliente final só pode visualizar os dias que o tenant escolheu como disponíveis
+
+---
+
+## 5.2 Lista de serviços
+O cliente verá uma lista de tranças e valores para escolher.
+
+### Tabela de preços atualizada
+
+#### Valores fixos (independente do tamanho)
+- French Curl Braids → R$ 200,00
+- Chanel → R$ 170,00
+- Faux Locs Individual → R$ 250,00
+- Faux Locs Método Crochê → R$ 350,00
+- Fulani Braids → R$ 170,00
+- Fulani Braids com Cachos → R$ 250,00
+
+#### Valores dependentes do tamanho
+- Box Braids → R$ 170,00 / R$ 170,00 / R$ 200,00
+- Twist Braids → R$ 170,00 / R$ 170,00 / R$ 200,00
+- Gypsy / Boho Braids → R$ 170,00 / R$ 170,00 / R$ 200,00
+
+### Regra visual obrigatória
+Em cada card de escolha de trança, exibir a frase:
+
+> **Leva em média 5 horas.**
+
+---
+
+## 5.3 Tamanho da trança
+Adicionar ao formulário um campo obrigatório:
+
+**Selecione o tamanho da trança:**
+- Até o meio das costas
+- Até a cintura ou bumbum
+
+### Este dado deve:
+- ser salvo no banco
+- ser enviado ao WhatsApp
+- ser exibido ao tenant
+
+---
+
+## 5.4 Formulário do cliente final
+O formulário de agendamento deve conter:
+
+- Nome Completo
+- Idade
+- Descrição de como deseja o cabelo
+- Upload de fotos de referência
+  - máximo de 3 fotos
+- Forma de pagamento
+  - Pix
+  - Cartão
+  - Dinheiro
+- Tamanho da trança
+- Seleção do serviço
+- Seleção de data
+- Seleção de horário
+
+---
+
+## 5.5 Regras da agenda
+Estas regras são obrigatórias e devem ser aplicadas no backend e refletidas no frontend.
+
+### Horários disponíveis
+Todos os dias disponíveis devem ter horários de:
+
+- 08:00 até 17:00
+- intervalo de 30 em 30 minutos
+
+Ou seja, os horários possíveis incluem:
+
+- 08:00
+- 08:30
+- 09:00
+- 09:30
+- ...
+- até 17:00
+
+### Regra de duração do serviço
+Cada trança possui uma duração cadastrada no banco em horas.
+
+### Regra de descanso obrigatório
+Após um atendimento, deve existir um descanso obrigatório de **1h30**.
+
+### Exemplo obrigatório
+Se o cliente agenda às **08:00** e a trança dura **4 horas**:
+
+- atendimento ocupa de 08:00 até 12:00
+- depois há 1h30 de descanso
+- próximo horário liberado: **13:30**
+
+### Regras globais da agenda
+- máximo de **2 agendamentos por dia**
+- ao atingir 2 agendamentos, o dia fica indisponível
+- bloquear apenas os horários afetados pelo serviço + descanso
+- se sobrarem horários possíveis após esse intervalo, manter disponíveis
+- considerar que 1 atendimento leva cerca de **4 a 5 horas**
+- ao escolher um horário X em um dia Y, se outra pessoa tentar agendar no mesmo dia Y, os horários exibidos precisam respeitar:
+  - a duração do atendimento anterior
+  - o intervalo obrigatório
+  - a lógica real de disponibilidade restante
+
+---
+
+## 5.6 Custos e lucro
+O tenant deve poder registrar o custo do material por agendamento.
+
+### Regra de lucro
+Lucro automático = **preço do serviço - custo informado**
+
+O tenant deve visualizar:
+
+- lucro por agendamento
+- lucro por período
+
+---
+
+# 6. Funcionalidades do Dashboard do Tenant
+
+## 6.1 Lista de próximos agendamentos
+Exibir:
+
+- nome
+- telefone
+- serviço
+- tamanho da trança
+- data e horário
+- fotos enviadas
+- custo informado
+- lucro calculado
+
+---
+
+## 6.2 Relatórios do tenant
+Exibir:
+
+- lucro por período
+- total de agendamentos
+- gráficos mensais
+
+---
+
+## 6.3 Configurações do tenant
+O tenant deve conseguir:
+
+- alterar tema
+- alterar WhatsApp
+- alterar nome do salão
+- alterar logo
+- alterar disponibilidade
+- alterar preços
+- alterar duração dos serviços
+- exportar relatórios
+- editar agendamentos manualmente
+- excluir agendamentos manualmente
+
+---
+
+# 7. Calendário Administrativo do Tenant
+
+O tenant precisa poder:
+
+- escolher dias disponíveis
+- desbloquear horários
+- bloquear horários
+- bloquear o dia inteiro
+- ver em tempo real quantos agendamentos há por dia
+- editar a regra de descanso (opcional)
+- editar horários padrão
+
+---
+
+# 8. Funcionalidades do Super Admin
+
+## 8.1 Lista completa de tenants
+Exibir colunas com:
+
+- nome do tenant
+- valor do plano atual
+- status
+  - ativo
+  - bloqueado
+  - bloqueio agendado
+- data da última renovação
+- data de cadastro do tenant
+- ganhos totais do SaaS
+- quantidade de clientes do tenant
+
+---
+
+## 8.2 Ações do super admin
+O super admin deve conseguir:
+
+- bloquear imediatamente
+- bloquear programado
+- editar
+- excluir
+- atualizar plano
+- resetar senha
+- ver relatórios financeiros do tenant
+- ver logs de atividade do tenant
+
+---
+
+## 8.3 Relatórios do super admin
+Exibir:
+
+- receita total do SaaS
+- tenants ativos
+- tenants bloqueados
+- total de agendamentos da plataforma
+- gráficos de crescimento
+
+---
+
+# 9. Multi-Tenant
+
+## Regras obrigatórias
+- o sistema deve ser realmente multi-tenant
+- cada tenant deve ter seus próprios dados isolados
+- o cliente acessa o ambiente correto pelo link do tenant
+- o sistema não pode depender de nome fixo, tema fixo ou qualquer hardcode
+- tudo precisa ser resolvido com base no tenant atual
+
+### Exemplos de dados por tenant
+- nome do salão
+- logo
+- número do WhatsApp
+- paleta de cores
+- disponibilidade
+- preços
+- duração de serviços
+- configurações de agenda
+- plano
+- recursos habilitados
+
+---
+
+# 10. WhatsApp
+
+## Correção obrigatória
+Existe um problema no envio do WhatsApp: o sistema usa um nome fixo em vez do nome do tenant.
+
+### Regra
+Remover qualquer nome hardcoded, como por exemplo nome fixo de salão.
+
+### O nome usado na mensagem deve:
+- vir do banco
+- ser o nome do tenant atual
+- funcionar em contexto multi-tenant
+
+## Requisitos do envio
+- mensagem dinâmica com nome do tenant
+- fallback se popup for bloqueado
+- melhorar UX do fluxo
+- testar e garantir comportamento adequado do fallback
+
+---
+
+# 11. UX / UI
+
+## Requisitos obrigatórios
+- mobile-first
+- interface moderna
+- fluxo simples
+- excelente responsividade
+
+### Deve funcionar muito bem em:
+- iPhone
+- Android
+- tablets
+- notebooks
+- telas grandes
+
+## Customização visual do tenant
+O tenant pode:
+- escolher a paleta de cores da interface dele
+- fazer upload do logotipo dele
+
+Essas customizações devem refletir na interface que o cliente final enxerga.
+
+---
+
+# 12. Melhorias Desejadas de SaaS
+Você pode implementar automaticamente, se fizer sentido técnico:
+
+- webhooks
+- página pública do tenant com URL única
+- SEO básico
+- cache de agendamentos
+- otimização para Lighthouse
+- CDN para imagens
+- logs de erros centralizados
+- sistema de limites por plano
+- emails transacionais
+- recuperação de senha
+- notificações push (opcional)
+- confirmação de agendamento por SMS/WhatsApp
+
+---
+
+# 13. Entrega Técnica Esperada
+
+## O sistema deve incluir
+- backend
+- frontend
+- banco
+- autenticação
+- dashboards
+- regras de negócio implementadas corretamente
+- código organizado
+- multi-tenant funcional
+- integrações necessárias
+- projeto preparado para produção
+
+---
+
+# 14. Documentação Final Obrigatória
+
+Ao final do projeto, entregar um guia completo contendo:
+
+## Como rodar localmente
+- instalar dependências
+- subir backend
+- subir frontend
+- comandos de build
+- subir containers
+- entrar nos containers
+- rebuildar imagens
+- resetar banco
+
+## Como alterar o backend
+- comandos necessários
+- reiniciar containers
+- rodar migrações
+
+## Como alterar o frontend
+- buildar
+- rodar localmente
+- deployar
+
+## Deploy em produção
+Incluir passo a passo para opções como:
+- Render
+- Railway
+- Fly.io
+- Vercel + banco
+- Docker Compose em VPS barata
+
+---
+
+# 15. Instrução Final
+
+## Muito importante
+- verifique o que já está feito antes de começar
+- pule para a próxima tarefa quando algo já existir
+- não recomece o projeto do zero sem necessidade
+- mantenha todos os pontos deste prompt
+- preserve todas as regras de negócio
+- organize a implementação por etapas
+- priorize consistência arquitetural
+- deixe tudo pronto para evolução futura
+- ME MOSTRE O PROJETO DE ALGUNMA FORMA, QUERO TER OS CODIGOS
+---
+
+# 16. Ponto de Partida
+
+Comece por:
+
+## Arquitetura + modelagem do banco + definição das entidades principais
+
+Depois siga incrementalmente para as próximas etapas.

@@ -1,0 +1,1290 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Trançify SaaS multi-tenant scheduling API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: tenants
+    description: Tenant management
+  - name: services
+    description: Braid services
+  - name: appointments
+    description: Client appointments
+  - name: availability
+    description: Schedule availability
+  - name: admin
+    description: Super admin operations
+  - name: Storage
+    description: Object storage upload and serving endpoints.
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login tenant or super admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/change-email:
+    post:
+      operationId: changeEmail
+      tags: [auth]
+      summary: Change email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeEmailRequest"
+      responses:
+        "200":
+          description: Email changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tenants/me:
+    get:
+      operationId: getMyTenant
+      tags: [tenants]
+      summary: Get current tenant profile
+      responses:
+        "200":
+          description: Tenant info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateMyTenant
+      tags: [tenants]
+      summary: Update current tenant profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantRequest"
+      responses:
+        "200":
+          description: Updated tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tenants/public/{slug}:
+    get:
+      operationId: getPublicTenant
+      tags: [tenants]
+      summary: Get public tenant info by slug (for client booking page)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public tenant info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicTenant"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /services:
+    get:
+      operationId: getMyServices
+      tags: [services]
+      summary: Get services for current tenant
+      responses:
+        "200":
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+    post:
+      operationId: createService
+      tags: [services]
+      summary: Create a new service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRequest"
+      responses:
+        "201":
+          description: Created service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+
+  /services/{id}:
+    patch:
+      operationId: updateService
+      tags: [services]
+      summary: Update a service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceRequest"
+      responses:
+        "200":
+          description: Updated service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+    delete:
+      operationId: deleteService
+      tags: [services]
+      summary: Delete a service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /services/public/{tenantId}:
+    get:
+      operationId: getPublicServices
+      tags: [services]
+      summary: Get public services for a tenant (for client booking)
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+
+  /availability:
+    get:
+      operationId: getMyAvailability
+      tags: [availability]
+      summary: Get availability config for current tenant
+      responses:
+        "200":
+          description: Availability config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+    put:
+      operationId: updateAvailability
+      tags: [availability]
+      summary: Update availability config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAvailabilityRequest"
+      responses:
+        "200":
+          description: Updated availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+
+  /availability/public/{tenantId}/dates:
+    get:
+      operationId: getPublicAvailabilityDates
+      tags: [availability]
+      summary: Get available dates for a tenant (for calendar display)
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Available dates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailableDates"
+
+  /availability/public/{tenantId}:
+    get:
+      operationId: getPublicAvailability
+      tags: [availability]
+      summary: Get available time slots for a tenant on a given date
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: serviceId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Available slots
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailableSlots"
+
+  /appointments:
+    get:
+      operationId: getMyAppointments
+      tags: [appointments]
+      summary: Get appointments for current tenant
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled, completed]
+      responses:
+        "200":
+          description: List of appointments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Appointment"
+
+  /appointments/{id}:
+    get:
+      operationId: getAppointment
+      tags: [appointments]
+      summary: Get a single appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+    patch:
+      operationId: updateAppointment
+      tags: [appointments]
+      summary: Update an appointment (tenant)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAppointmentRequest"
+      responses:
+        "200":
+          description: Updated appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+    delete:
+      operationId: deleteAppointment
+      tags: [appointments]
+      summary: Delete an appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /appointments/book:
+    post:
+      operationId: bookAppointment
+      tags: [appointments]
+      summary: Book a new appointment (client, public)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookAppointmentRequest"
+      responses:
+        "201":
+          description: Appointment booked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "400":
+          description: Slot unavailable or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /appointments/{id}/cost:
+    patch:
+      operationId: updateAppointmentCost
+      tags: [appointments]
+      summary: Update material cost for an appointment (tenant)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCostRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+
+  /reports/tenant:
+    get:
+      operationId: getTenantReport
+      tags: [appointments]
+      summary: Get revenue and appointment reports for tenant
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantReport"
+
+  /admin/tenants:
+    get:
+      operationId: adminGetTenants
+      tags: [admin]
+      summary: Get all tenants (super admin)
+      responses:
+        "200":
+          description: All tenants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTenant"
+    post:
+      operationId: adminCreateTenant
+      tags: [admin]
+      summary: Create a new tenant (super admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateTenantRequest"
+      responses:
+        "201":
+          description: Created tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTenant"
+
+  /admin/tenants/{id}:
+    patch:
+      operationId: adminUpdateTenant
+      tags: [admin]
+      summary: Update a tenant (super admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateTenantRequest"
+      responses:
+        "200":
+          description: Updated tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTenant"
+    delete:
+      operationId: adminDeleteTenant
+      tags: [admin]
+      summary: Delete a tenant (super admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/tenants/{id}/reset-password:
+    post:
+      operationId: adminResetPassword
+      tags: [admin]
+      summary: Reset tenant password (super admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminResetPasswordRequest"
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [admin]
+      summary: Get platform statistics (super admin)
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to generate upload URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed with correct Content-Type.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required: [token, user]
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [tenant, super_admin]
+        tenantId:
+          type: string
+          nullable: true
+        tenantSlug:
+          type: string
+          nullable: true
+      required: [id, email, role]
+
+    ChangePasswordRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+      required: [currentPassword, newPassword]
+
+    ChangeEmailRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newEmail:
+          type: string
+      required: [currentPassword, newEmail]
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        whatsapp:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        primaryColor:
+          type: string
+          nullable: true
+        secondaryColor:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, blocked]
+        plan:
+          type: string
+          enum: [basic, professional, enterprise]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, slug, name, email, status, plan, createdAt]
+
+    PublicTenant:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        whatsapp:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        primaryColor:
+          type: string
+          nullable: true
+        secondaryColor:
+          type: string
+          nullable: true
+      required: [id, slug, name]
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          minLength: 3
+          maxLength: 50
+        whatsapp:
+          type: string
+        logoUrl:
+          type: string
+        primaryColor:
+          type: string
+        secondaryColor:
+          type: string
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        durationHours:
+          type: number
+        priceSmall:
+          type: number
+          description: Price for "up to mid-back" size
+        priceLarge:
+          type: number
+          description: Price for "waist/butt" size
+        sizeDependent:
+          type: boolean
+          description: Whether price varies by size
+        active:
+          type: boolean
+      required: [id, tenantId, name, durationHours, priceSmall, priceLarge, sizeDependent, active]
+
+    CreateServiceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        durationHours:
+          type: number
+        priceSmall:
+          type: number
+        priceLarge:
+          type: number
+        sizeDependent:
+          type: boolean
+      required: [name, durationHours, priceSmall, priceLarge, sizeDependent]
+
+    UpdateServiceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        durationHours:
+          type: number
+        priceSmall:
+          type: number
+        priceLarge:
+          type: number
+        sizeDependent:
+          type: boolean
+        active:
+          type: boolean
+
+    Availability:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        availableDays:
+          type: array
+          items:
+            type: integer
+            description: Day of week 0=Sun, 1=Mon, ..., 6=Sat
+        startTime:
+          type: string
+          description: HH:MM format
+        endTime:
+          type: string
+          description: HH:MM format
+        slotIntervalMinutes:
+          type: integer
+        breakAfterMinutes:
+          type: integer
+          description: Rest time after each appointment in minutes
+        maxAppointmentsPerDay:
+          type: integer
+        blockedDates:
+          type: array
+          items:
+            type: string
+            format: date
+      required: [id, tenantId, availableDays, startTime, endTime, slotIntervalMinutes, breakAfterMinutes, maxAppointmentsPerDay]
+
+    UpdateAvailabilityRequest:
+      type: object
+      properties:
+        availableDays:
+          type: array
+          items:
+            type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        slotIntervalMinutes:
+          type: integer
+        breakAfterMinutes:
+          type: integer
+        maxAppointmentsPerDay:
+          type: integer
+        blockedDates:
+          type: array
+          items:
+            type: string
+            format: date
+
+    AvailableSlots:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        slots:
+          type: array
+          items:
+            type: string
+            description: Available time slots in HH:MM format
+        available:
+          type: boolean
+      required: [date, slots, available]
+
+    AvailableDates:
+      type: object
+      properties:
+        availableDates:
+          type: array
+          items:
+            type: string
+            format: date
+          description: List of available dates in YYYY-MM-DD format
+      required: [availableDates]
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        serviceId:
+          type: string
+        serviceName:
+          type: string
+        clientName:
+          type: string
+        clientAge:
+          type: integer
+          nullable: true
+        clientPhone:
+          type: string
+          nullable: true
+        hairDescription:
+          type: string
+          nullable: true
+        referencePhotos:
+          type: array
+          items:
+            type: string
+        paymentMethod:
+          type: string
+          enum: [pix, card, cash]
+        braidSize:
+          type: string
+          enum: [mid_back, waist_butt]
+        servicePrice:
+          type: number
+        materialCost:
+          type: number
+          nullable: true
+        profit:
+          type: number
+          nullable: true
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          description: HH:MM
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, completed]
+        token:
+          type: string
+          description: Client editing token
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, tenantId, serviceId, serviceName, clientName, paymentMethod, braidSize, servicePrice, date, time, status, token, createdAt]
+
+    BookAppointmentRequest:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        serviceId:
+          type: string
+        clientName:
+          type: string
+        clientAge:
+          type: integer
+        clientPhone:
+          type: string
+        hairDescription:
+          type: string
+        referencePhotos:
+          type: array
+          items:
+            type: string
+        paymentMethod:
+          type: string
+          enum: [pix, card, cash]
+        braidSize:
+          type: string
+          enum: [mid_back, waist_butt]
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+        notes:
+          type: string
+      required: [tenantId, serviceId, clientName, paymentMethod, braidSize, date, time]
+
+    UpdateAppointmentRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, completed]
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+        notes:
+          type: string
+
+    UpdateCostRequest:
+      type: object
+      properties:
+        materialCost:
+          type: number
+      required: [materialCost]
+
+    TenantReport:
+      type: object
+      properties:
+        totalAppointments:
+          type: integer
+        totalRevenue:
+          type: number
+        totalCosts:
+          type: number
+        totalProfit:
+          type: number
+        appointmentsByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        monthlyData:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyData"
+      required: [totalAppointments, totalRevenue, totalCosts, totalProfit, appointmentsByStatus, monthlyData]
+
+    MonthlyData:
+      type: object
+      properties:
+        month:
+          type: string
+        appointments:
+          type: integer
+        revenue:
+          type: number
+        profit:
+          type: number
+      required: [month, appointments, revenue, profit]
+
+    AdminTenant:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        status:
+          type: string
+          enum: [active, blocked]
+        plan:
+          type: string
+          enum: [basic, professional, enterprise]
+        planPrice:
+          type: number
+        totalAppointments:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        lastActiveAt:
+          type: string
+          format: date-time
+          nullable: true
+        blockAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, slug, name, email, status, plan, planPrice, totalAppointments, createdAt]
+
+    AdminCreateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        slug:
+          type: string
+        plan:
+          type: string
+          enum: [basic, professional, enterprise]
+        whatsapp:
+          type: string
+      required: [name, email, password, slug, plan]
+
+    AdminUpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        status:
+          type: string
+          enum: [active, blocked]
+        plan:
+          type: string
+          enum: [basic, professional, enterprise]
+        blockAt:
+          type: string
+          format: date-time
+
+    AdminResetPasswordRequest:
+      type: object
+      properties:
+        newPassword:
+          type: string
+      required: [newPassword]
+
+    AdminStats:
+      type: object
+      properties:
+        totalTenants:
+          type: integer
+        activeTenants:
+          type: integer
+        blockedTenants:
+          type: integer
+        totalAppointments:
+          type: integer
+        totalRevenue:
+          type: number
+        monthlyData:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyData"
+      required: [totalTenants, activeTenants, blockedTenants, totalAppointments, totalRevenue, monthlyData]
