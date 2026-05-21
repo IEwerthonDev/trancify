@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "fmwGxLXbwsrKx7H8WinEp"
+uri = "file://SETUP.md"
+type = "text"
+title = "Tutorial completo — Trancify"
