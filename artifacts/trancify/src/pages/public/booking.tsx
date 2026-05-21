@@ -127,6 +127,31 @@ export default function PublicBookingPage() {
   const [lookupFound, setLookupFound] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
 
+  // Fullscreen image lightbox
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number; title?: string } | null>(null);
+  const openLightbox = (images: string[], index: number, title?: string) => {
+    if (!images.length) return;
+    setLightbox({ images, index, title });
+  };
+  const closeLightbox = () => setLightbox(null);
+  const lightboxNext = () => setLightbox((lb) => lb ? { ...lb, index: (lb.index + 1) % lb.images.length } : lb);
+  const lightboxPrev = () => setLightbox((lb) => lb ? { ...lb, index: (lb.index - 1 + lb.images.length) % lb.images.length } : lb);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeLightbox();
+      else if (e.key === "ArrowRight") lightboxNext();
+      else if (e.key === "ArrowLeft") lightboxPrev();
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [lightbox]);
+
   const { data: availableDatesData } = useGetPublicAvailabilityDates(
     tenant?.id || "",
     { query: { enabled: !!tenant?.id } }
@@ -602,13 +627,25 @@ export default function PublicBookingPage() {
                       {photos.length > 0 && (
                         <div className="flex gap-2 overflow-x-auto pt-3 border-t border-border/40 -mx-1 px-1">
                           {photos.slice(0, 4).map((src, i) => (
-                            <img
+                            <button
                               key={i}
-                              src={src}
-                              alt={`${service.name} exemplo ${i + 1}`}
-                              loading="lazy"
-                              className="w-20 h-20 object-cover rounded-xl border border-border shrink-0"
-                            />
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); openLightbox(photos, i, service.name); }}
+                              className="relative w-20 h-20 rounded-xl border border-border shrink-0 overflow-hidden group/img cursor-zoom-in"
+                              aria-label={`Ver foto ${i + 1} em tela cheia`}
+                            >
+                              <img
+                                src={src}
+                                alt={`${service.name} exemplo ${i + 1}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover transition-transform group-hover/img:scale-110"
+                              />
+                              {i === 3 && photos.length > 4 && (
+                                <div className="absolute inset-0 bg-black/60 text-white text-sm font-bold flex items-center justify-center">
+                                  +{photos.length - 4}
+                                </div>
+                              )}
+                            </button>
                           ))}
                         </div>
                       )}
@@ -624,6 +661,25 @@ export default function PublicBookingPage() {
             <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <h2 className="text-3xl font-display font-bold mb-2">2. Qual o tamanho?</h2>
               <p className="text-muted-foreground mb-8 text-lg">O tamanho influencia no valor e tempo do serviço.</p>
+
+              {selectedService && Array.isArray(selectedService.referencePhotos) && selectedService.referencePhotos.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-sm font-semibold text-muted-foreground mb-2">Fotos do serviço (toque para ampliar)</p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {(selectedService.referencePhotos as string[]).map((src, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => openLightbox(selectedService.referencePhotos, i, selectedService.name)}
+                        className="w-24 h-24 rounded-2xl border border-border shrink-0 overflow-hidden cursor-zoom-in hover:ring-2 hover:ring-primary/40 transition-all"
+                        aria-label={`Ver foto ${i + 1} em tela cheia`}
+                      >
+                        <img src={src} alt={`${selectedService.name} ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
@@ -1064,6 +1120,82 @@ export default function PublicBookingPage() {
 
         </AnimatePresence>
       </main>
+
+      {/* Fullscreen image lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
+          onClick={closeLightbox}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Visualização de imagem em tela cheia"
+        >
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
+            className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white flex items-center justify-center transition-colors"
+            aria-label="Fechar"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          {/* Counter / title */}
+          <div className="absolute top-4 left-4 z-10 text-white bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-sm font-semibold">
+            {lightbox.title ? `${lightbox.title} — ` : ""}
+            {lightbox.index + 1} / {lightbox.images.length}
+          </div>
+
+          {/* Prev button */}
+          {lightbox.images.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+              className="absolute left-2 sm:left-6 z-10 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white flex items-center justify-center transition-colors"
+              aria-label="Imagem anterior"
+            >
+              <ChevronLeft className="w-7 h-7" />
+            </button>
+          )}
+
+          {/* Image */}
+          <img
+            src={lightbox.images[lightbox.index]}
+            alt={`${lightbox.title ?? "Foto"} ${lightbox.index + 1}`}
+            className="max-w-[92vw] max-h-[88vh] object-contain select-none"
+            onClick={(e) => e.stopPropagation()}
+            draggable={false}
+          />
+
+          {/* Next button */}
+          {lightbox.images.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+              className="absolute right-2 sm:right-6 z-10 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md text-white flex items-center justify-center transition-colors"
+              aria-label="Próxima imagem"
+            >
+              <ChevronRight className="w-7 h-7" />
+            </button>
+          )}
+
+          {/* Thumbnail strip */}
+          {lightbox.images.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[92vw] overflow-x-auto px-2 py-2 bg-white/5 backdrop-blur-md rounded-2xl">
+              {lightbox.images.map((src, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setLightbox(lb => lb ? { ...lb, index: i } : lb); }}
+                  className={`w-14 h-14 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${i === lightbox.index ? "border-white scale-105" : "border-transparent opacity-60 hover:opacity-100"}`}
+                >
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
