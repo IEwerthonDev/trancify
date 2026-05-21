@@ -143,9 +143,7 @@ export default function PrimeirosPassosPage() {
 
   const hasWhatsApp = !!tenant?.whatsapp?.trim();
   const hasService = (services?.length ?? 0) >= 1;
-  const hasAvailability =
-    (availability?.availableDays?.length ?? 0) > 0 ||
-    (availability?.availableDates?.length ?? 0) > 0;
+  const hasAvailability = (availability?.availableDates?.length ?? 0) > 0;
 
   const steps: Step[] = [
     {
@@ -171,11 +169,11 @@ export default function PrimeirosPassosPage() {
     {
       id: 3,
       icon: Clock,
-      title: "Confirme sua disponibilidade",
+      title: "Abra sua agenda",
       description:
-        "Defina quais dias da semana e horários você atende. Por padrão, segunda a sexta das 8h às 17h já estão habilitados.",
+        "Selecione no calendário os dias específicos em que você vai atender. Sem datas selecionadas, suas clientes não conseguem agendar.",
       href: "/dashboard/disponibilidade",
-      cta: "Ver horários",
+      cta: "Selecionar datas",
       done: hasAvailability,
     },
   ];
@@ -210,7 +208,7 @@ export default function PrimeirosPassosPage() {
         </div>
 
         {/* Progress card */}
-        <div className={`rounded-3xl p-6 mb-8 flex items-center gap-6 border ${
+        <div className={`rounded-3xl p-6 mb-8 flex flex-col sm:flex-row items-center gap-5 sm:gap-6 border ${
           allDone
             ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800"
             : "bg-card border-border/50 shadow-sm"

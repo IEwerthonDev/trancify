@@ -359,22 +359,61 @@ function ActionMenu({ appointment, onUpdate }: { appointment: any, onUpdate: () 
         <Button size="sm" variant="ghost" className="h-8 text-xs px-2 text-destructive hover:bg-destructive/10" onClick={() => handleStatus('cancelled')}>Cancelar</Button>
       )}
 
-      {appointment.status === 'completed' && (
+      {appointment.status !== 'cancelled' && (
         <Dialog open={isCostOpen} onOpenChange={setIsCostOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" variant="secondary" className="h-8 rounded-lg font-bold text-xs px-3">
-              {appointment.materialCost ? formatCurrency(appointment.materialCost) : "Add Custo"}
+            <Button
+              size="sm"
+              variant={appointment.materialCost ? "secondary" : "outline"}
+              className={`h-8 rounded-lg font-bold text-xs px-3 gap-1 ${
+                !appointment.materialCost
+                  ? "border-dashed text-muted-foreground hover:text-foreground"
+                  : ""
+              }`}
+            >
+              <CreditCard className="w-3 h-3" />
+              {appointment.materialCost ? formatCurrency(appointment.materialCost) : "Custo"}
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Custo de Material</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Custo de Material</DialogTitle>
+            </DialogHeader>
             <div className="space-y-4 mt-4">
-              <p className="text-sm text-muted-foreground">Registre quanto gastou de jumbo/material para este atendimento para calcular seu lucro real.</p>
-              <div>
-                <label className="text-sm font-semibold mb-1 block">Valor (R$)</label>
-                <Input type="number" min="0" step="0.01" value={costStr} onChange={e => setCostStr(e.target.value)} placeholder="Ex: 85.50" />
+              <div className="bg-secondary/50 rounded-xl p-3 text-sm text-muted-foreground">
+                <p className="font-semibold text-foreground mb-0.5">{appointment.clientName} · {appointment.serviceName}</p>
+                <p>Registre quanto gastou de jumbo/material para calcular seu lucro real neste atendimento.</p>
               </div>
-              <Button onClick={handleSaveCost} className="w-full">Salvar Custo</Button>
+              <div>
+                <label className="text-sm font-semibold mb-1 block">Valor do material (R$)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={costStr}
+                  onChange={e => setCostStr(e.target.value)}
+                  placeholder="Ex: 85.50"
+                  className="text-lg font-semibold h-12"
+                  autoFocus
+                />
+              </div>
+              {costStr && !isNaN(Number(costStr)) && Number(costStr) >= 0 && (
+                <div className="grid grid-cols-2 gap-3 text-center">
+                  <div className="bg-secondary/50 rounded-xl p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Receita</p>
+                    <p className="font-bold text-foreground">{formatCurrency(appointment.servicePrice)}</p>
+                  </div>
+                  <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Lucro estimado</p>
+                    <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(appointment.servicePrice - Number(costStr))}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <Button onClick={handleSaveCost} className="w-full h-11" disabled={updateCost.isPending}>
+                {updateCost.isPending ? "Salvando..." : "Salvar custo"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
