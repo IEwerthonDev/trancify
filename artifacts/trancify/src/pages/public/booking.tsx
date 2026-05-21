@@ -481,8 +481,8 @@ export default function PublicBookingPage() {
                   </button>
                   <h3 className="text-lg font-bold">{capitalizedMonth}</h3>
                   <button
-                    onClick={() => { setMonthOffset(1); setSelectedDate(""); setSelectedTime(""); }}
-                    disabled={monthOffset === 1}
+                    onClick={() => { setMonthOffset(Math.min(2, monthOffset + 1)); setSelectedDate(""); setSelectedTime(""); }}
+                    disabled={monthOffset === 2}
                     className="p-2 rounded-xl hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronRight className="w-5 h-5" />

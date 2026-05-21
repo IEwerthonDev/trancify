@@ -2,12 +2,10 @@ import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useGetMyTenant } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
 import {
-  CreditCard, CheckCircle, Sparkles, Clock, AlertTriangle,
-  Calendar, Zap, Shield, XCircle, ChevronRight, Star,
+  CheckCircle, Sparkles, Clock, AlertTriangle,
+  Calendar, Zap, Shield, XCircle, ChevronRight, Star, PauseCircle,
 } from "lucide-react";
 import { formatDistanceToNow, format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -15,11 +13,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+type SubStatus = "trial" | "active" | "cancelled" | "expired" | "paused";
+
 async function fetchSubscription() {
-  const res = await fetch(`${BASE}/api/tenants/subscription`, { credentials: "include" });
+  const token = localStorage.getItem("trancify_token");
+  const res = await fetch(`${BASE}/api/tenants/subscription`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (!res.ok) throw new Error("Erro ao buscar assinatura");
   return res.json() as Promise<{
-    subscriptionStatus: "trial" | "active" | "cancelled" | "expired";
+    subscriptionStatus: SubStatus;
     subscriptionPlan: "monthly" | "annual" | null;
     trialEndsAt: string;
     subscriptionStartedAt: string | null;
@@ -28,22 +31,44 @@ async function fetchSubscription() {
 }
 
 async function activateSubscription(plan: "monthly" | "annual") {
+  const token = localStorage.getItem("trancify_token");
   const res = await fetch(`${BASE}/api/tenants/subscription/activate`, {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ plan }),
   });
   if (!res.ok) throw new Error("Erro ao ativar assinatura");
   return res.json();
 }
 
-async function cancelSubscription() {
+async function cancelSubscription(feedback?: string) {
+  const token = localStorage.getItem("trancify_token");
   const res = await fetch(`${BASE}/api/tenants/subscription/cancel`, {
     method: "POST",
-    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ feedback }),
   });
   if (!res.ok) throw new Error("Erro ao cancelar assinatura");
+  return res.json();
+}
+
+async function pauseSubscription(feedback?: string) {
+  const token = localStorage.getItem("trancify_token");
+  const res = await fetch(`${BASE}/api/tenants/subscription/pause`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ feedback }),
+  });
+  if (!res.ok) throw new Error("Erro ao pausar assinatura");
   return res.json();
 }
 
@@ -69,16 +94,16 @@ export default function AssinaturaPage() {
   });
 
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("annual");
-  const [cardData, setCardData] = useState({ number: "", name: "", expiry: "", cvv: "" });
-  const [showCard, setShowCard] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [cancelFeedback, setCancelFeedback] = useState("");
+  const [pauseFeedback, setPauseFeedback] = useState("");
 
   const activateMutation = useMutation({
     mutationFn: activateSubscription,
     onSuccess: () => {
       toast({ title: "Assinatura ativada com sucesso!" });
       qc.invalidateQueries({ queryKey: ["subscription"] });
-      setShowCard(false);
     },
     onError: () => {
       toast({ title: "Erro ao ativar assinatura", variant: "destructive" });
@@ -86,24 +111,30 @@ export default function AssinaturaPage() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: cancelSubscription,
+    mutationFn: (feedback: string) => cancelSubscription(feedback || undefined),
     onSuccess: () => {
       toast({ title: "Assinatura cancelada" });
       qc.invalidateQueries({ queryKey: ["subscription"] });
-      setShowCancelConfirm(false);
+      setShowCancelModal(false);
+      setCancelFeedback("");
     },
     onError: () => {
       toast({ title: "Erro ao cancelar", variant: "destructive" });
     },
   });
 
-  const handleActivate = () => {
-    if (!cardData.number || !cardData.name || !cardData.expiry || !cardData.cvv) {
-      toast({ title: "Preencha todos os dados do cartão", variant: "destructive" });
-      return;
-    }
-    activateMutation.mutate(selectedPlan);
-  };
+  const pauseMutation = useMutation({
+    mutationFn: (feedback: string) => pauseSubscription(feedback || undefined),
+    onSuccess: () => {
+      toast({ title: "Assinatura pausada" });
+      qc.invalidateQueries({ queryKey: ["subscription"] });
+      setShowPauseModal(false);
+      setPauseFeedback("");
+    },
+    onError: () => {
+      toast({ title: "Erro ao pausar", variant: "destructive" });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -121,6 +152,7 @@ export default function AssinaturaPage() {
   const subEndsAt = sub?.subscriptionEndsAt ? parseISO(sub.subscriptionEndsAt) : null;
   const now = new Date();
   const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+  const cancelledWithAccess = status === "cancelled" && subEndsAt !== null && subEndsAt > now;
 
   return (
     <DashboardLayout>
@@ -137,210 +169,201 @@ export default function AssinaturaPage() {
           {/* Current Status Banner */}
           <StatusBanner status={status} plan={plan} trialDaysLeft={trialDaysLeft} trialEndsAt={trialEndsAt} subEndsAt={subEndsAt} />
 
-          {/* Show plan selection + card if not active */}
-          {(status === "trial" || status === "expired" || status === "cancelled") && (
-            <>
-              {/* Plan Selection */}
-              <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
-                <h2 className="text-2xl font-display font-bold mb-2">Escolha seu plano</h2>
-                <p className="text-muted-foreground mb-6 text-sm">
-                  Acesso completo a todos os recursos. Cancele quando quiser.
-                </p>
+          {/* Plan selection + activate CTA — shown when not active/paused */}
+          {(status === "trial" || status === "expired" || (status === "cancelled" && !cancelledWithAccess)) && (
+            <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+              <h2 className="text-2xl font-display font-bold mb-2">Escolha seu plano</h2>
+              <p className="text-muted-foreground mb-6 text-sm">
+                Acesso completo a todos os recursos. Cancele quando quiser.
+              </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                  {/* Monthly */}
-                  <button
-                    onClick={() => setSelectedPlan("monthly")}
-                    className={`p-6 rounded-2xl border-2 text-left transition-all ${
-                      selectedPlan === "monthly"
-                        ? "border-primary bg-primary/5 ring-4 ring-primary/10"
-                        : "border-border bg-secondary/30 hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="text-sm font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Mensal</div>
-                    <div className="text-3xl font-bold text-foreground">
-                      R$ 50<span className="text-lg font-semibold text-muted-foreground">/mês</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">Cobrado mensalmente. Cancele quando quiser.</p>
-                    {selectedPlan === "monthly" && (
-                      <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-primary">
-                        <CheckCircle className="w-3.5 h-3.5" /> Selecionado
-                      </div>
-                    )}
-                  </button>
+              <PlanSelector selected={selectedPlan} onChange={setSelectedPlan} />
 
-                  {/* Annual */}
-                  <button
-                    onClick={() => setSelectedPlan("annual")}
-                    className={`p-6 rounded-2xl border-2 text-left transition-all relative ${
-                      selectedPlan === "annual"
-                        ? "border-primary bg-primary/5 ring-4 ring-primary/10"
-                        : "border-border bg-secondary/30 hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="absolute -top-3 right-4">
-                      <span className="bg-primary text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <Star className="w-2.5 h-2.5" /> MELHOR VALOR
-                      </span>
-                    </div>
-                    <div className="text-sm font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Anual</div>
-                    <div className="text-3xl font-bold text-foreground">
-                      R$ 40<span className="text-lg font-semibold text-muted-foreground">/mês</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      R$ 480,00 cobrado em <strong className="text-foreground">12x no cartão</strong>
-                    </p>
-                    <p className="text-xs text-emerald-600 font-semibold mt-1">Economize R$ 120 por ano</p>
-                    {selectedPlan === "annual" && (
-                      <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-primary">
-                        <CheckCircle className="w-3.5 h-3.5" /> Selecionado
-                      </div>
-                    )}
-                  </button>
-                </div>
-
-                {/* CTA to show card form */}
-                {!showCard ? (
-                  <Button
-                    size="lg"
-                    className="w-full h-14 text-lg rounded-xl"
-                    onClick={() => setShowCard(true)}
-                  >
-                    <CreditCard className="w-5 h-5 mr-2" />
-                    Cadastrar cartão e assinar
+              <Button
+                size="lg"
+                className="w-full h-14 text-lg rounded-xl mt-6"
+                onClick={() => activateMutation.mutate(selectedPlan)}
+                disabled={activateMutation.isPending}
+              >
+                {activateMutation.isPending ? (
+                  "Ativando…"
+                ) : selectedPlan === "annual" ? (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Ativar plano Anual — R$ 480,00/ano
                     <ChevronRight className="w-5 h-5 ml-2" />
-                  </Button>
+                  </>
                 ) : (
-                  <div className="border border-border/60 rounded-2xl p-6 bg-secondary/20 space-y-4">
-                    <h3 className="font-bold text-foreground flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-primary" />
-                      Dados do cartão de crédito
-                    </h3>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm font-semibold text-foreground mb-1 block">Número do cartão</label>
-                        <Input
-                          value={cardData.number}
-                          onChange={(e) => {
-                            const v = e.target.value.replace(/\D/g, "").slice(0, 16);
-                            const formatted = v.replace(/(.{4})/g, "$1 ").trim();
-                            setCardData({ ...cardData, number: formatted });
-                          }}
-                          placeholder="0000 0000 0000 0000"
-                          className="h-12 font-mono"
-                          maxLength={19}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-foreground mb-1 block">Nome no cartão</label>
-                        <Input
-                          value={cardData.name}
-                          onChange={(e) => setCardData({ ...cardData, name: e.target.value.toUpperCase() })}
-                          placeholder="NOME COMO NO CARTÃO"
-                          className="h-12"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-sm font-semibold text-foreground mb-1 block">Validade</label>
-                          <Input
-                            value={cardData.expiry}
-                            onChange={(e) => {
-                              const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                              const formatted = v.length > 2 ? `${v.slice(0, 2)}/${v.slice(2)}` : v;
-                              setCardData({ ...cardData, expiry: formatted });
-                            }}
-                            placeholder="MM/AA"
-                            className="h-12 font-mono"
-                            maxLength={5}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-semibold text-foreground mb-1 block">CVV</label>
-                          <Input
-                            value={cardData.cvv}
-                            onChange={(e) => setCardData({ ...cardData, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-                            placeholder="000"
-                            className="h-12 font-mono"
-                            maxLength={4}
-                            type="password"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-secondary/50 rounded-xl px-3 py-2">
-                      <Shield className="w-3.5 h-3.5 shrink-0" />
-                      Seus dados são criptografados e protegidos
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <Button
-                        variant="outline"
-                        className="flex-1 h-12 rounded-xl"
-                        onClick={() => setShowCard(false)}
-                      >
-                        Voltar
-                      </Button>
-                      <Button
-                        className="flex-1 h-12 rounded-xl text-base font-bold"
-                        onClick={handleActivate}
-                        disabled={activateMutation.isPending}
-                      >
-                        {activateMutation.isPending
-                          ? "Ativando..."
-                          : selectedPlan === "annual"
-                          ? "Assinar — 12x R$ 40,00"
-                          : "Assinar — R$ 50,00/mês"}
-                      </Button>
-                    </div>
-                  </div>
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Ativar plano Mensal — R$ 50,00/mês
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </>
                 )}
-              </div>
-            </>
+              </Button>
+            </div>
           )}
 
-          {/* Active subscription — show cancel option */}
+          {/* Cancelled but still has access — show Ativar Assinatura */}
+          {cancelledWithAccess && (
+            <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+              <h2 className="text-2xl font-display font-bold mb-2">Ativar Assinatura</h2>
+              <p className="text-muted-foreground mb-6 text-sm">
+                Você ainda tem acesso até{" "}
+                <strong className="text-foreground">{subEndsAt && format(subEndsAt, "dd/MM/yyyy")}</strong>.
+                Reative agora para não perder o acesso.
+              </p>
+
+              <PlanSelector selected={selectedPlan} onChange={setSelectedPlan} />
+
+              <Button
+                size="lg"
+                className="w-full h-14 text-lg rounded-xl mt-6"
+                onClick={() => activateMutation.mutate(selectedPlan)}
+                disabled={activateMutation.isPending}
+              >
+                {activateMutation.isPending ? "Ativando…" : (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Ativar Assinatura
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Paused — show reactivate option */}
+          {status === "paused" && (
+            <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+              <h2 className="text-2xl font-display font-bold mb-2">Ativar Assinatura</h2>
+              <p className="text-muted-foreground mb-6 text-sm">
+                Sua assinatura está pausada. Reative para recuperar o acesso completo.
+              </p>
+
+              <PlanSelector selected={selectedPlan} onChange={setSelectedPlan} />
+
+              <Button
+                size="lg"
+                className="w-full h-14 text-lg rounded-xl mt-6"
+                onClick={() => activateMutation.mutate(selectedPlan)}
+                disabled={activateMutation.isPending}
+              >
+                {activateMutation.isPending ? "Ativando…" : (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Reativar Assinatura
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Active subscription — Pausar + Cancelar */}
           {status === "active" && (
             <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
-              <h2 className="text-2xl font-display font-bold mb-2">Cancelar assinatura</h2>
+              <h2 className="text-2xl font-display font-bold mb-2">Gerenciar assinatura</h2>
               <p className="text-muted-foreground mb-6 text-sm">
-                Você pode cancelar a qualquer momento. Continuará tendo acesso até o fim do período pago
+                Você pode pausar ou cancelar a qualquer momento. Continuará tendo acesso até o fim do período pago
                 {subEndsAt && ` (${format(subEndsAt, "dd/MM/yyyy")})`}.
               </p>
 
-              {!showCancelConfirm ? (
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   variant="outline"
-                  className="border-destructive/50 text-destructive hover:bg-destructive/5 rounded-xl h-11 px-6"
-                  onClick={() => setShowCancelConfirm(true)}
+                  className="flex-1 border-amber-400/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl h-11"
+                  onClick={() => setShowPauseModal(true)}
+                >
+                  <PauseCircle className="w-4 h-4 mr-2" />
+                  Pausar assinatura
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/5 rounded-xl h-11"
+                  onClick={() => setShowCancelModal(true)}
                 >
                   <XCircle className="w-4 h-4 mr-2" />
                   Cancelar assinatura
                 </Button>
-              ) : (
-                <div className="bg-destructive/5 border border-destructive/20 rounded-2xl p-5 space-y-4">
+              </div>
+
+              {/* Pause Modal */}
+              {showPauseModal && (
+                <div className="mt-5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <PauseCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-foreground">Pausar assinatura?</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Seu acesso ficará suspenso até você reativar. Nenhuma cobrança adicional será feita.
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">
+                      Motivo (opcional)
+                    </label>
+                    <textarea
+                      value={pauseFeedback}
+                      onChange={(e) => setPauseFeedback(e.target.value)}
+                      placeholder="Nos conte o que está acontecendo…"
+                      rows={3}
+                      maxLength={1000}
+                      className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1 rounded-xl" onClick={() => { setShowPauseModal(false); setPauseFeedback(""); }}>
+                      Voltar
+                    </Button>
+                    <Button
+                      className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white"
+                      onClick={() => pauseMutation.mutate(pauseFeedback)}
+                      disabled={pauseMutation.isPending}
+                    >
+                      {pauseMutation.isPending ? "Pausando…" : "Confirmar pausa"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Cancel Modal */}
+              {showCancelModal && (
+                <div className="mt-5 bg-destructive/5 border border-destructive/20 rounded-2xl p-5 space-y-4">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-foreground">Tem certeza?</p>
+                      <p className="font-bold text-foreground">Cancelar assinatura?</p>
                       <p className="text-sm text-muted-foreground mt-1">
                         Ao cancelar, você perderá o acesso ao dashboard ao fim do período vigente. Seus dados ficam salvos por 30 dias.
                       </p>
                     </div>
                   </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">
+                      Motivo (opcional)
+                    </label>
+                    <textarea
+                      value={cancelFeedback}
+                      onChange={(e) => setCancelFeedback(e.target.value)}
+                      placeholder="Seu feedback nos ajuda a melhorar…"
+                      rows={3}
+                      maxLength={1000}
+                      className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
                   <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowCancelConfirm(false)}>
+                    <Button variant="outline" className="flex-1 rounded-xl" onClick={() => { setShowCancelModal(false); setCancelFeedback(""); }}>
                       Manter assinatura
                     </Button>
                     <Button
                       variant="destructive"
                       className="flex-1 rounded-xl"
-                      onClick={() => cancelMutation.mutate()}
+                      onClick={() => cancelMutation.mutate(cancelFeedback)}
                       disabled={cancelMutation.isPending}
                     >
-                      {cancelMutation.isPending ? "Cancelando..." : "Confirmar cancelamento"}
+                      {cancelMutation.isPending ? "Cancelando…" : "Confirmar cancelamento"}
                     </Button>
                   </div>
                 </div>
@@ -349,7 +372,7 @@ export default function AssinaturaPage() {
           )}
         </div>
 
-        {/* Sidebar — features list */}
+        {/* Sidebar */}
         <div className="space-y-6">
           <div className="bg-primary/5 border border-primary/20 rounded-[2rem] p-7">
             <div className="flex items-center gap-2 mb-5">
@@ -378,7 +401,7 @@ export default function AssinaturaPage() {
               {status === "active" && plan === "annual" && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Cobrança</span>
-                  <span className="font-semibold">12x R$ 40,00</span>
+                  <span className="font-semibold">R$ 480,00/ano</span>
                 </div>
               )}
               {status === "active" && plan === "monthly" && (
@@ -393,9 +416,9 @@ export default function AssinaturaPage() {
                   <span className="font-semibold">{format(trialEndsAt, "dd/MM/yyyy")}</span>
                 </div>
               )}
-              {subEndsAt && status === "active" && (
+              {subEndsAt && (status === "active" || cancelledWithAccess) && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Próx. cobrança</span>
+                  <span className="text-muted-foreground">{status === "active" ? "Próx. cobrança" : "Acesso até"}</span>
                   <span className="font-semibold">{format(subEndsAt, "dd/MM/yyyy")}</span>
                 </div>
               )}
@@ -411,6 +434,63 @@ export default function AssinaturaPage() {
   );
 }
 
+function PlanSelector({
+  selected,
+  onChange,
+}: {
+  selected: "monthly" | "annual";
+  onChange: (v: "monthly" | "annual") => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <button
+        onClick={() => onChange("monthly")}
+        className={`p-6 rounded-2xl border-2 text-left transition-all ${
+          selected === "monthly"
+            ? "border-primary bg-primary/5 ring-4 ring-primary/10"
+            : "border-border bg-secondary/30 hover:border-primary/50"
+        }`}
+      >
+        <div className="text-sm font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Mensal</div>
+        <div className="text-3xl font-bold text-foreground">
+          R$ 50<span className="text-lg font-semibold text-muted-foreground">/mês</span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">Cobrado mensalmente.</p>
+        {selected === "monthly" && (
+          <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-primary">
+            <CheckCircle className="w-3.5 h-3.5" /> Selecionado
+          </div>
+        )}
+      </button>
+
+      <button
+        onClick={() => onChange("annual")}
+        className={`p-6 rounded-2xl border-2 text-left transition-all relative ${
+          selected === "annual"
+            ? "border-primary bg-primary/5 ring-4 ring-primary/10"
+            : "border-border bg-secondary/30 hover:border-primary/50"
+        }`}
+      >
+        <div className="absolute -top-3 right-4">
+          <span className="bg-primary text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+            <Star className="w-2.5 h-2.5" /> MELHOR VALOR
+          </span>
+        </div>
+        <div className="text-sm font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Anual</div>
+        <div className="text-3xl font-bold text-foreground">
+          R$ 40<span className="text-lg font-semibold text-muted-foreground">/mês</span>
+        </div>
+        <p className="text-xs text-emerald-600 font-semibold mt-1">Economize R$ 120/ano</p>
+        {selected === "annual" && (
+          <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-primary">
+            <CheckCircle className="w-3.5 h-3.5" /> Selecionado
+          </div>
+        )}
+      </button>
+    </div>
+  );
+}
+
 function StatusBanner({
   status,
   plan,
@@ -418,7 +498,7 @@ function StatusBanner({
   trialEndsAt,
   subEndsAt,
 }: {
-  status: string;
+  status: SubStatus;
   plan: string | null;
   trialDaysLeft: number;
   trialEndsAt: Date | null;
@@ -463,17 +543,38 @@ function StatusBanner({
     );
   }
 
-  if (status === "cancelled") {
+  if (status === "paused") {
     return (
-      <div className="rounded-[2rem] p-6 flex items-start gap-5 bg-secondary/50 border border-border">
-        <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center shrink-0">
-          <XCircle className="w-6 h-6 text-muted-foreground" />
+      <div className="rounded-[2rem] p-6 flex items-start gap-5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+        <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
+          <PauseCircle className="w-6 h-6 text-amber-600" />
         </div>
         <div>
-          <p className="font-bold text-lg text-foreground">Assinatura cancelada</p>
-          <p className="text-sm mt-1 text-muted-foreground">
-            {subEndsAt && `Seu acesso continua até ${format(subEndsAt, "dd/MM/yyyy")}. `}
-            Assine novamente para continuar usando o Trancify.
+          <p className="font-bold text-lg text-amber-800 dark:text-amber-200">Assinatura pausada</p>
+          <p className="text-sm mt-1 text-amber-700 dark:text-amber-300">
+            Seu acesso está suspenso. Reative abaixo para voltar a usar o Trancify.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "cancelled") {
+    const now = new Date();
+    const hasAccess = subEndsAt !== null && subEndsAt > now;
+    return (
+      <div className={`rounded-[2rem] p-6 flex items-start gap-5 border ${hasAccess ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800" : "bg-secondary/50 border-border"}`}>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${hasAccess ? "bg-amber-100 dark:bg-amber-900/50" : "bg-secondary"}`}>
+          <XCircle className={`w-6 h-6 ${hasAccess ? "text-amber-600" : "text-muted-foreground"}`} />
+        </div>
+        <div>
+          <p className={`font-bold text-lg ${hasAccess ? "text-amber-800 dark:text-amber-200" : "text-foreground"}`}>
+            Assinatura cancelada
+          </p>
+          <p className={`text-sm mt-1 ${hasAccess ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>
+            {hasAccess && subEndsAt
+              ? `Você ainda tem acesso até ${format(subEndsAt, "dd/MM/yyyy")}. Reative abaixo para continuar.`
+              : "Assine novamente para continuar usando o Trancify."}
           </p>
         </div>
       </div>
@@ -499,12 +600,13 @@ function StatusBanner({
   return null;
 }
 
-function StatusChip({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
+function StatusChip({ status }: { status: SubStatus }) {
+  const map: Record<SubStatus, { label: string; cls: string }> = {
     trial:     { label: "Teste",     cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
     active:    { label: "Ativa",     cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
     cancelled: { label: "Cancelada", cls: "bg-secondary text-muted-foreground" },
     expired:   { label: "Expirada",  cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+    paused:    { label: "Pausada",   cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
   };
   const { label, cls } = map[status] ?? { label: status, cls: "" };
   return <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${cls}`}>{label}</span>;

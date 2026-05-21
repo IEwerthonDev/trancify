@@ -22,6 +22,7 @@ import AdminOverview from "@/pages/admin/index";
 import AdminTenants from "@/pages/admin/tenants";
 import AdminContaPage from "@/pages/admin/conta";
 import CadastroPage from "@/pages/cadastro";
+import CompletarCadastroPage from "@/pages/completar-cadastro";
 import PublicBookingPage from "@/pages/public/booking";
 
 const queryClient = new QueryClient();
@@ -29,7 +30,7 @@ const queryClient = new QueryClient();
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface SubscriptionInfo {
-  subscriptionStatus: "trial" | "active" | "cancelled" | "expired";
+  subscriptionStatus: "trial" | "active" | "cancelled" | "expired" | "paused";
   trialEndsAt: string;
   subscriptionPlan: "monthly" | "annual" | null;
   subscriptionStartedAt: string | null;
@@ -111,6 +112,7 @@ function Router() {
       <Route path="/" component={HomePage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/cadastro" component={CadastroPage} />
+      <Route path="/cadastro/completar/:token" component={CompletarCadastroPage} />
 
       {/* Tenant Routes — all guarded by trial check */}
       <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardHome} allowedRole="tenant" checkTrial />} />

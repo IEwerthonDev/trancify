@@ -124,8 +124,8 @@ export default function DisponibilidadePage() {
                 </button>
                 <h2 className="text-2xl font-display font-bold w-56 text-center">{capitalizedMonth}</h2>
                 <button
-                  onClick={() => setMonthOffset(1)}
-                  disabled={monthOffset === 1}
+                  onClick={() => setMonthOffset(Math.min(2, monthOffset + 1))}
+                  disabled={monthOffset === 2}
                   className="p-2 rounded-xl hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   aria-label="Próximo mês"
                 >

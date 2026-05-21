@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
-import { db, usersTable, tenantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, tenantsTable, pendingRegistrationsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { signToken, comparePassword, hashPassword, requireAuth, MIN_PASSWORD_LENGTH, type AuthRequest } from "../lib/auth.js";
 import { logger } from "../lib/logger.js";
 import { z } from "zod";
@@ -27,13 +27,12 @@ const sensitiveOpLimiter = rateLimit({
   message: { error: "TooManyRequests", message: "Muitas tentativas. Tente novamente em 15 minutos." },
 });
 
-// 3 registrations per IP per 24h to prevent free trial abuse
 const registerLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   limit: process.env.NODE_ENV === "development" ? 50 : 3,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  keyGenerator: (req) => ipKeyGenerator(req),
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
   message: {
     error: "TooManyRequests",
     message: "Limite de cadastros por IP atingido. Por segurança, permitimos no máximo 3 cadastros por endereço de rede a cada 24 horas. Tente novamente amanhã ou entre em contato: contato@trancify.com.br",
@@ -48,28 +47,23 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  // Personal
   ownerName: z.string().min(2, "Nome deve ter ao menos 2 caracteres"),
   email: z.string().email("Email inválido"),
   password: z.string().min(8, "Senha deve ter ao menos 8 caracteres"),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
-  cpf: z.string().min(11).max(14),
-  // Salon
+  cpf: z.string().min(11).max(14).optional(),
+  cnpj: z.string().min(14).max(18).optional(),
   salonName: z.string().min(2, "Nome do salão deve ter ao menos 2 caracteres"),
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/, "URL deve conter apenas letras minúsculas, números e hífens"),
   whatsapp: z.string().min(10, "WhatsApp inválido"),
-  // Address
   cep: z.string().min(8),
   address: z.string().min(5),
+  neighborhood: z.string().optional(),
+  addressNumber: z.string().optional(),
+  addressComplement: z.string().optional(),
   city: z.string().min(2),
   state: z.string().length(2),
-  // Plan
   plan: z.enum(["monthly", "annual"]),
-  // Card metadata (display only — raw data never touches our server)
-  cardLast4: z.string().length(4),
-  cardBrand: z.string().min(1),
-  cardExpiryMonth: z.string().regex(/^\d{2}$/),
-  cardExpiryYear: z.string().regex(/^\d{4}$/),
 });
 
 const changePasswordSchema = z.object({
@@ -84,6 +78,7 @@ const changeEmailSchema = z.object({
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
+// POST /register — saves pending registration, returns payment link token
 router.post("/register", registerLimiter, async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -97,15 +92,18 @@ router.post("/register", registerLimiter, async (req, res) => {
   const d = parsed.data;
   const ip = req.ip ?? "unknown";
 
+  if (!d.cpf && !d.cnpj) {
+    res.status(400).json({ error: "ValidationError", message: "Informe CPF ou CNPJ." });
+    return;
+  }
+
   try {
-    // Check email uniqueness
     const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.email, d.email.toLowerCase())).limit(1);
     if (existingUser) {
       res.status(409).json({ error: "Conflict", message: "Este email já está cadastrado." });
       return;
     }
 
-    // Check slug uniqueness
     const [existingSlug] = await db.select().from(tenantsTable).where(eq(tenantsTable.slug, d.slug)).limit(1);
     if (existingSlug) {
       res.status(409).json({ error: "Conflict", message: "Esta URL de salão já está em uso. Escolha outra." });
@@ -114,33 +112,113 @@ router.post("/register", registerLimiter, async (req, res) => {
 
     const passwordHash = await hashPassword(d.password);
 
-    const [user] = await db.insert(usersTable).values({
+    const [pending] = await db.insert(pendingRegistrationsTable).values({
+      ownerName: d.ownerName.trim(),
       email: d.email.toLowerCase(),
       passwordHash,
+      birthDate: d.birthDate,
+      cpf: d.cpf ?? null,
+      cnpj: d.cnpj ?? null,
+      salonName: d.salonName.trim(),
+      slug: d.slug,
+      whatsapp: d.whatsapp,
+      cep: d.cep,
+      address: d.address.trim(),
+      neighborhood: d.neighborhood ?? null,
+      addressNumber: d.addressNumber ?? null,
+      addressComplement: d.addressComplement ?? null,
+      city: d.city.trim(),
+      state: d.state,
+      plan: d.plan,
+      registrationIp: ip,
+    }).returning();
+
+    const origin = req.headers.origin ?? `https://${req.headers.host}`;
+    const paymentLink = `${origin}/cadastro/completar/${pending!.token}`;
+
+    logger.info({ pendingId: pending!.id, slug: d.slug, ip }, "Pending registration created");
+
+    res.status(201).json({ token: pending!.token, paymentLink });
+  } catch (err) {
+    req.log.error({ err }, "Register pending error");
+    res.status(500).json({ error: "InternalError", message: "Erro interno. Tente novamente." });
+  }
+});
+
+// GET /register/complete/:token — completes registration (creates user + tenant)
+router.get("/register/complete/:token", async (req, res) => {
+  const { token } = req.params;
+  if (!token) {
+    res.status(400).json({ error: "BadRequest", message: "Token inválido." });
+    return;
+  }
+
+  try {
+    const [pending] = await db
+      .select()
+      .from(pendingRegistrationsTable)
+      .where(eq(pendingRegistrationsTable.token, token))
+      .limit(1);
+
+    if (!pending) {
+      res.status(404).json({ error: "NotFound", message: "Link inválido ou expirado." });
+      return;
+    }
+
+    if (pending.completed === "yes") {
+      res.status(409).json({ error: "Conflict", message: "Este link já foi utilizado. Faça login para acessar sua conta." });
+      return;
+    }
+
+    if (new Date() > pending.expiresAt) {
+      res.status(410).json({ error: "Gone", message: "Este link expirou. Faça um novo cadastro." });
+      return;
+    }
+
+    const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.email, pending.email)).limit(1);
+    if (existingUser) {
+      res.status(409).json({ error: "Conflict", message: "Este email já está cadastrado. Faça login." });
+      return;
+    }
+
+    const [existingSlug] = await db.select().from(tenantsTable).where(eq(tenantsTable.slug, pending.slug)).limit(1);
+    if (existingSlug) {
+      res.status(409).json({ error: "Conflict", message: "Esta URL de salão já está em uso. Faça um novo cadastro." });
+      return;
+    }
+
+    const [user] = await db.insert(usersTable).values({
+      email: pending.email,
+      passwordHash: pending.passwordHash,
       role: "tenant",
     }).returning();
 
     const [tenant] = await db.insert(tenantsTable).values({
       userId: user!.id,
-      name: d.salonName,
-      slug: d.slug,
-      whatsapp: d.whatsapp,
-      ownerName: d.ownerName,
-      birthDate: d.birthDate,
-      cpf: d.cpf,
-      address: d.address,
-      cep: d.cep,
-      city: d.city,
-      state: d.state,
-      subscriptionPlan: d.plan,
-      cardLast4: d.cardLast4,
-      cardBrand: d.cardBrand,
-      cardExpiryMonth: d.cardExpiryMonth,
-      cardExpiryYear: d.cardExpiryYear,
-      registrationIp: ip,
+      name: pending.salonName,
+      slug: pending.slug,
+      whatsapp: pending.whatsapp ?? undefined,
+      ownerName: pending.ownerName,
+      birthDate: pending.birthDate ?? undefined,
+      cpf: pending.cpf ?? undefined,
+      cnpj: pending.cnpj ?? undefined,
+      address: pending.address ?? undefined,
+      neighborhood: pending.neighborhood ?? undefined,
+      addressNumber: pending.addressNumber ?? undefined,
+      addressComplement: pending.addressComplement ?? undefined,
+      cep: pending.cep ?? undefined,
+      city: pending.city ?? undefined,
+      state: pending.state ?? undefined,
+      subscriptionPlan: (pending.plan as "monthly" | "annual"),
+      registrationIp: pending.registrationIp ?? undefined,
     }).returning();
 
-    const token = signToken({
+    await db
+      .update(pendingRegistrationsTable)
+      .set({ completed: "yes", completedAt: new Date() })
+      .where(eq(pendingRegistrationsTable.id, pending.id));
+
+    const jwtToken = signToken({
       userId: user!.id,
       email: user!.email,
       role: "tenant",
@@ -148,10 +226,10 @@ router.post("/register", registerLimiter, async (req, res) => {
       tenantSlug: tenant!.slug,
     });
 
-    logger.info({ userId: user!.id, slug: tenant!.slug, ip }, "New tenant registered");
+    logger.info({ userId: user!.id, slug: tenant!.slug }, "Registration completed via payment link");
 
     res.status(201).json({
-      token,
+      token: jwtToken,
       user: {
         id: user!.id,
         email: user!.email,
@@ -161,7 +239,7 @@ router.post("/register", registerLimiter, async (req, res) => {
       },
     });
   } catch (err) {
-    req.log.error({ err }, "Register error");
+    req.log.error({ err }, "Complete registration error");
     res.status(500).json({ error: "InternalError", message: "Erro interno. Tente novamente." });
   }
 });

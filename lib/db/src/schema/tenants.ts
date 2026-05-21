@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { usersTable } from "./users";
 
 export const tenantStatusEnum = pgEnum("tenant_status", ["active", "blocked"]);
-export const subscriptionStatusEnum = pgEnum("subscription_status", ["trial", "active", "cancelled", "expired"]);
+export const subscriptionStatusEnum = pgEnum("subscription_status", ["trial", "active", "cancelled", "expired", "paused"]);
 export const subscriptionPlanEnum = pgEnum("subscription_plan", ["monthly", "annual"]);
 
 export const tenantsTable = pgTable("tenants", {
@@ -17,9 +17,13 @@ export const tenantsTable = pgTable("tenants", {
   ownerName: text("owner_name"),
   birthDate: text("birth_date"),
   cpf: text("cpf"),
+  cnpj: text("cnpj"),
 
   // Salon address
   address: text("address"),
+  neighborhood: text("neighborhood"),
+  addressNumber: text("address_number"),
+  addressComplement: text("address_complement"),
   cep: text("cep"),
   state: text("state"),
   city: text("city"),
@@ -41,12 +45,6 @@ export const tenantsTable = pgTable("tenants", {
   subscriptionEndsAt: timestamp("subscription_ends_at"),
   blockAt: timestamp("block_at"),
   lastActiveAt: timestamp("last_active_at"),
-
-  // Payment card metadata (display only — never store raw card data)
-  cardLast4: text("card_last4"),
-  cardBrand: text("card_brand"),
-  cardExpiryMonth: text("card_expiry_month"),
-  cardExpiryYear: text("card_expiry_year"),
 
   // Anti-abuse
   registrationIp: text("registration_ip"),
