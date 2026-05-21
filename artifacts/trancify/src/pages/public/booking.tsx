@@ -918,11 +918,11 @@ export default function PublicBookingPage() {
 
               <div className="bg-card p-6 sm:p-8 rounded-[2rem] border border-border shadow-xl space-y-6">
 
-                {/* CPF lookup */}
+                {/* CPF — salvo no cadastro; o botão "Buscar" é só um atalho */}
                 <div className="bg-secondary/30 border border-border rounded-2xl p-4">
                   <label className="text-sm font-semibold mb-1 block">CPF <span className="text-destructive">*</span></label>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Se já agendou aqui antes, vamos carregar seus dados automaticamente.
+                    Usado para identificar você no salão. Se já agendou aqui antes, clique em <strong className="text-foreground">Buscar</strong> para carregar seus dados automaticamente.
                   </p>
                   <div className="flex gap-2">
                     <Input
