@@ -21,6 +21,7 @@ import AssinaturaPage from "@/pages/dashboard/assinatura";
 import AdminOverview from "@/pages/admin/index";
 import AdminTenants from "@/pages/admin/tenants";
 import AdminContaPage from "@/pages/admin/conta";
+import PrimeirosPassosPage from "@/pages/dashboard/primeiros-passos";
 import CadastroPage from "@/pages/cadastro";
 import CompletarCadastroPage from "@/pages/completar-cadastro";
 import PublicBookingPage from "@/pages/public/booking";
@@ -126,6 +127,7 @@ function Router() {
       <Route path="/dashboard/agenda" component={() => <ProtectedRoute component={AgendaPage} allowedRole="tenant" checkTrial />} />
       <Route path="/dashboard/configuracoes" component={() => <ProtectedRoute component={ConfiguracoesPage} allowedRole="tenant" checkTrial />} />
       <Route path="/dashboard/relatorios" component={() => <ProtectedRoute component={RelatoriosPage} allowedRole="tenant" checkTrial />} />
+      <Route path="/dashboard/primeiros-passos" component={() => <ProtectedRoute component={PrimeirosPassosPage} allowedRole="tenant" checkTrial />} />
       {/* Assinatura page: accessible even if trial is expired so they can reactivate */}
       <Route path="/dashboard/assinatura" component={() => <ProtectedRoute component={AssinaturaPage} allowedRole="tenant" />} />
 

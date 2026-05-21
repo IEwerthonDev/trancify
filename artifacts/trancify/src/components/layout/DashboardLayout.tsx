@@ -20,6 +20,7 @@ import {
   Moon,
   Sun,
   CreditCard,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const tenantNav = [
     { name: "Início", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Primeiros passos", href: "/dashboard/primeiros-passos", icon: Rocket },
     { name: "Agenda", href: "/dashboard/agenda", icon: CalendarDays },
     { name: "Agendamentos", href: "/dashboard/agendamentos", icon: ListTodo },
     { name: "Serviços", href: "/dashboard/servicos", icon: Scissors },
