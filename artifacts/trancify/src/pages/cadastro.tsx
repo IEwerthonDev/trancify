@@ -213,6 +213,7 @@ function PlanCard({
 export default function CadastroPage() {
   const { isDarkMode, toggleDarkMode } = useTheme();
   const { toast } = useToast();
+  const { loginWithToken } = useAuth();
   const [, setLocation] = useLocation();
 
   const [step, setStep] = useState(1);
@@ -223,6 +224,7 @@ export default function CadastroPage() {
   const [slugEdited, setSlugEdited] = useState(false);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [isTrialLoading, setIsTrialLoading] = useState(false);
   const slugInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormData>({
@@ -403,6 +405,62 @@ export default function CadastroPage() {
       toast({ title: "Erro de conexão", description: "Verifique sua internet e tente novamente.", variant: "destructive" });
     } finally {
       setIsGeneratingLink(false);
+    }
+  }
+
+  async function handleTrialRegister() {
+    setIsTrialLoading(true);
+    const body = {
+      ownerName: form.ownerName.trim(),
+      email: form.email.trim(),
+      password: form.password,
+      birthDate: form.birthDate,
+      ...(form.documentType === "cpf"
+        ? { cpf: form.cpf.replace(/\D/g, "") }
+        : { cnpj: form.cnpj.replace(/\D/g, "") }),
+      salonName: form.salonName.trim(),
+      slug: form.slug,
+      whatsapp: form.whatsapp.replace(/\D/g, ""),
+      cep: form.cep.replace(/\D/g, ""),
+      address: form.address.trim(),
+      neighborhood: form.neighborhood.trim(),
+      addressNumber: form.addressNumber.trim(),
+      addressComplement: form.addressComplement.trim() || undefined,
+      city: form.city.trim(),
+      state: form.state,
+    };
+
+    try {
+      const res = await fetch(`${BASE}/api/auth/register/trial`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          toast({ title: "Limite atingido", description: data.message, variant: "destructive" });
+        } else if (res.status === 409) {
+          if (data.message?.includes("email")) {
+            setDir(-1); setStep(2); setErrors({ email: data.message });
+          } else if (data.message?.includes("URL")) {
+            setDir(-1); setStep(3); setErrors({ slug: data.message });
+          } else {
+            toast({ title: "Erro", description: data.message, variant: "destructive" });
+          }
+        } else {
+          toast({ title: "Erro no cadastro", description: data.message ?? "Tente novamente.", variant: "destructive" });
+        }
+        return;
+      }
+
+      loginWithToken(data.token, data.user);
+      setLocation("/dashboard");
+    } catch {
+      toast({ title: "Erro de conexão", description: "Verifique sua internet e tente novamente.", variant: "destructive" });
+    } finally {
+      setIsTrialLoading(false);
     }
   }
 
@@ -678,15 +736,40 @@ export default function CadastroPage() {
           <PlanCard selected={form.plan === "monthly"} plan="monthly" onClick={() => set("plan", "monthly")} />
           <PlanCard selected={form.plan === "annual"} plan="annual" onClick={() => set("plan", "annual")} />
         </div>
-        <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 flex gap-3">
-          <Clock className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-medium text-foreground mb-0.5">7 dias grátis, sem cobrança</p>
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              O pagamento só é necessário para continuar após o teste gratuito. Cancele antes se preferir — sem multa.
-            </p>
-          </div>
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-xs text-muted-foreground font-medium">ou teste sem compromisso</span>
+          <div className="flex-1 h-px bg-border" />
         </div>
+
+        <button
+          type="button"
+          onClick={handleTrialRegister}
+          disabled={isTrialLoading}
+          className="w-full rounded-2xl border-2 border-dashed border-primary/40 hover:border-primary/70 bg-primary/3 hover:bg-primary/6 transition-all p-5 text-left group disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: `${WINE}18` }}
+            >
+              {isTrialLoading ? (
+                <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${WINE} transparent ${WINE} ${WINE}` }} />
+              ) : (
+                <Clock className="w-4 h-4" style={{ color: WINE }} />
+              )}
+            </div>
+            <div>
+              <p className="font-semibold text-foreground text-sm">
+                {isTrialLoading ? "Criando sua conta…" : "Testar gratuitamente"}
+              </p>
+              <p className="text-xs text-muted-foreground">7 dias grátis · sem cartão de crédito</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground ml-11 leading-relaxed">
+            Comece agora mesmo e escolha um plano depois — sem pressão.
+          </p>
+        </button>
       </div>
     ),
 

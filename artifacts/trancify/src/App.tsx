@@ -57,7 +57,11 @@ function useSubscriptionStatus(enabled: boolean) {
 function isTrialExpired(sub: SubscriptionInfo | undefined): boolean {
   if (!sub) return false;
   if (sub.subscriptionStatus === "expired") return true;
-  if (sub.subscriptionStatus === "cancelled") return true;
+  if (sub.subscriptionStatus === "cancelled") {
+    const endsAt = sub.subscriptionEndsAt ? new Date(sub.subscriptionEndsAt) : null;
+    if (endsAt && endsAt > new Date()) return false;
+    return true;
+  }
   if (sub.subscriptionStatus === "trial") {
     return new Date(sub.trialEndsAt) < new Date();
   }

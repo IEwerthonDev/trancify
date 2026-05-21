@@ -244,6 +244,92 @@ router.get("/register/complete/:token", async (req, res) => {
   }
 });
 
+// POST /register/trial — creates account immediately in trial (no payment required)
+router.post("/register/trial", registerLimiter, async (req, res) => {
+  const trialSchema = registerSchema.omit({ plan: true });
+  const parsed = trialSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "ValidationError",
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+    return;
+  }
+
+  const d = parsed.data;
+  const ip = req.ip ?? "unknown";
+
+  if (!d.cpf && !d.cnpj) {
+    res.status(400).json({ error: "ValidationError", message: "Informe CPF ou CNPJ." });
+    return;
+  }
+
+  try {
+    const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.email, d.email.toLowerCase())).limit(1);
+    if (existingUser) {
+      res.status(409).json({ error: "Conflict", message: "Este email já está cadastrado." });
+      return;
+    }
+
+    const [existingSlug] = await db.select().from(tenantsTable).where(eq(tenantsTable.slug, d.slug)).limit(1);
+    if (existingSlug) {
+      res.status(409).json({ error: "Conflict", message: "Esta URL de salão já está em uso. Escolha outra." });
+      return;
+    }
+
+    const passwordHash = await hashPassword(d.password);
+
+    const [user] = await db.insert(usersTable).values({
+      email: d.email.toLowerCase(),
+      passwordHash,
+      role: "tenant",
+    }).returning();
+
+    const [tenant] = await db.insert(tenantsTable).values({
+      userId: user!.id,
+      name: d.salonName.trim(),
+      slug: d.slug,
+      whatsapp: d.whatsapp,
+      ownerName: d.ownerName.trim(),
+      birthDate: d.birthDate,
+      cpf: d.cpf ?? null,
+      cnpj: d.cnpj ?? null,
+      address: d.address.trim(),
+      neighborhood: d.neighborhood ?? null,
+      addressNumber: d.addressNumber ?? null,
+      addressComplement: d.addressComplement ?? null,
+      cep: d.cep,
+      city: d.city.trim(),
+      state: d.state,
+      registrationIp: ip,
+    }).returning();
+
+    const jwtToken = signToken({
+      userId: user!.id,
+      email: user!.email,
+      role: "tenant",
+      tenantId: tenant!.id,
+      tenantSlug: tenant!.slug,
+    });
+
+    logger.info({ userId: user!.id, slug: tenant!.slug }, "Trial registration created directly");
+
+    res.status(201).json({
+      token: jwtToken,
+      user: {
+        id: user!.id,
+        email: user!.email,
+        role: user!.role,
+        tenantId: tenant!.id,
+        tenantSlug: tenant!.slug,
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Trial registration error");
+    res.status(500).json({ error: "InternalError", message: "Erro interno. Tente novamente." });
+  }
+});
+
 router.post("/login", loginLimiter, async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {

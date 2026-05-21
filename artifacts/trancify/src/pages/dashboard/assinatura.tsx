@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useGetMyTenant } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -146,12 +146,19 @@ export default function AssinaturaPage() {
     );
   }
 
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const status = sub?.subscriptionStatus ?? "trial";
   const plan = sub?.subscriptionPlan;
   const trialEndsAt = sub?.trialEndsAt ? parseISO(sub.trialEndsAt) : null;
   const subEndsAt = sub?.subscriptionEndsAt ? parseISO(sub.subscriptionEndsAt) : null;
-  const now = new Date();
-  const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+  const trialMsLeft = trialEndsAt ? Math.max(0, trialEndsAt.getTime() - now.getTime()) : 0;
+  const trialDaysLeft = Math.floor(trialMsLeft / (1000 * 60 * 60 * 24));
+  const trialHoursLeft = Math.floor((trialMsLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   const cancelledWithAccess = status === "cancelled" && subEndsAt !== null && subEndsAt > now;
 
   return (
@@ -167,7 +174,7 @@ export default function AssinaturaPage() {
         <div className="xl:col-span-2 space-y-6">
 
           {/* Current Status Banner */}
-          <StatusBanner status={status} plan={plan} trialDaysLeft={trialDaysLeft} trialEndsAt={trialEndsAt} subEndsAt={subEndsAt} />
+          <StatusBanner status={status} plan={plan} trialDaysLeft={trialDaysLeft} trialHoursLeft={trialHoursLeft} trialEndsAt={trialEndsAt} subEndsAt={subEndsAt} />
 
           {/* Plan selection + activate CTA — shown when not active/paused */}
           {(status === "trial" || status === "expired" || (status === "cancelled" && !cancelledWithAccess)) && (
@@ -495,17 +502,24 @@ function StatusBanner({
   status,
   plan,
   trialDaysLeft,
+  trialHoursLeft,
   trialEndsAt,
   subEndsAt,
 }: {
   status: SubStatus;
   plan: string | null;
   trialDaysLeft: number;
+  trialHoursLeft: number;
   trialEndsAt: Date | null;
   subEndsAt: Date | null;
 }) {
   if (status === "trial") {
     const urgent = trialDaysLeft <= 2;
+    const countdownLabel = trialDaysLeft > 0
+      ? `${trialDaysLeft} dia${trialDaysLeft !== 1 ? "s" : ""} e ${trialHoursLeft}h`
+      : trialHoursLeft > 0
+        ? `${trialHoursLeft} hora${trialHoursLeft !== 1 ? "s" : ""}`
+        : "menos de 1 hora";
     return (
       <div className={`rounded-[2rem] p-6 flex items-start gap-5 border ${urgent ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800" : "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800"}`}>
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${urgent ? "bg-amber-100 dark:bg-amber-900/50" : "bg-blue-100 dark:bg-blue-900/50"}`}>
@@ -513,7 +527,7 @@ function StatusBanner({
         </div>
         <div>
           <p className={`font-bold text-lg ${urgent ? "text-amber-800 dark:text-amber-200" : "text-blue-800 dark:text-blue-200"}`}>
-            {urgent ? `⚠️ Teste expira em ${trialDaysLeft} dia${trialDaysLeft !== 1 ? "s" : ""}!` : `Período de teste — ${trialDaysLeft} dia${trialDaysLeft !== 1 ? "s" : ""} restante${trialDaysLeft !== 1 ? "s" : ""}`}
+            {urgent ? `⚠️ Teste expira em ${countdownLabel}!` : `Período de teste — ${countdownLabel} restante${trialDaysLeft !== 1 ? "s" : ""}`}
           </p>
           <p className={`text-sm mt-1 ${urgent ? "text-amber-700 dark:text-amber-300" : "text-blue-700 dark:text-blue-300"}`}>
             {trialEndsAt && `Seu teste gratuito termina em ${format(trialEndsAt, "dd 'de' MMMM", { locale: ptBR })}. `}

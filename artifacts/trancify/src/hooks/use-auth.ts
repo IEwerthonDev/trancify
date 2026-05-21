@@ -41,11 +41,17 @@ export function useAuth() {
     },
   });
 
+  function loginWithToken(authToken: string, userData: object) {
+    localStorage.setItem("trancify_token", authToken);
+    queryClient.setQueryData(["/api/auth/me"], userData);
+  }
+
   return {
     user,
     isLoading: isLoading && !!token,
     isAuthenticated: !!user,
     login: loginMutation.mutateAsync,
+    loginWithToken,
     isLoggingIn: loginMutation.isPending,
     logout: logoutMutation.mutate,
     token,

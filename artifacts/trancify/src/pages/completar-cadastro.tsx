@@ -12,7 +12,7 @@ const WINE = "#6D1F3A";
 export default function CompletarCadastroPage() {
   const { token } = useParams<{ token: string }>();
   const [, setLocation] = useLocation();
-  const { login } = useAuth();
+  const { loginWithToken } = useAuth();
 
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
@@ -36,7 +36,7 @@ export default function CompletarCadastroPage() {
           return;
         }
 
-        login(data.token, data.user);
+        loginWithToken(data.token, data.user);
         setOwnerName(data.user?.ownerName ?? "");
         setStatus("success");
 
