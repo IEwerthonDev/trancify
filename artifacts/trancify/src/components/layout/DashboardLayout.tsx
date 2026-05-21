@@ -98,6 +98,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <item.icon
                   className={cn(
                     "w-5 h-5 transition-transform group-hover:scale-110",
+                    item.icon === Rocket && "-rotate-45",
                     isActive(item.href) && "text-primary-foreground"
                   )}
                 />
@@ -238,7 +239,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                           : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
                       )}
                     >
-                      <item.icon className="w-5 h-5 shrink-0" />
+                      <item.icon className={cn("w-5 h-5 shrink-0", item.icon === Rocket && "-rotate-45")} />
                       {item.name}
                     </Link>
                   ))}
@@ -325,6 +326,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <item.icon
                   className={cn(
                     "w-5 h-5 transition-colors",
+                    item.icon === Rocket && "-rotate-45",
                     active ? "text-primary" : "text-muted-foreground"
                   )}
                 />

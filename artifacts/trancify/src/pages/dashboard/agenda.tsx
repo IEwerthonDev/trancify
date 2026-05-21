@@ -140,11 +140,6 @@ export default function AgendaPage() {
                   title={dominantStatus ? `${dayAppts.length} ${STATUS_LABELS[dominantStatus]?.toLowerCase() ?? ""}` : undefined}
                 >
                   <span className="font-bold text-base">{format(day, "d")}</span>
-                  {dayAppts.length > 0 && (
-                    <span className="text-[10px] font-semibold opacity-75">
-                      {dayAppts.length} agend.
-                    </span>
-                  )}
                 </button>
               );
             })}
