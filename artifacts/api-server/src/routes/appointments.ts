@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, appointmentsTable, servicesTable, availabilityTable, tenantsTable, clientsTable } from "@workspace/db";
-import { eq, and, gte, lte, desc, ne, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, ne, sql, inArray } from "drizzle-orm";
 import { requireTenant, type AuthRequest } from "../lib/auth.js";
 import { computeAvailableSlots } from "../lib/availability.js";
 import { sendBookingNotification } from "../lib/whatsapp.js";

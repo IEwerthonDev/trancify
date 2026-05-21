@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, availabilityTable, appointmentsTable, servicesTable } from "@workspace/db";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { requireTenant, type AuthRequest } from "../lib/auth.js";
 import { computeAvailableSlots } from "../lib/availability.js";
 import { z } from "zod";
