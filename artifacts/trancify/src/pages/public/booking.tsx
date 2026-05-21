@@ -58,6 +58,91 @@ function hexToHsl(hex: string): string {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
+function hexLuminance(hex: string): number {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return 1;
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const r = lin(parseInt(m[1]!, 16) / 255);
+  const g = lin(parseInt(m[2]!, 16) / 255);
+  const b = lin(parseInt(m[3]!, 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function adjustHslL(hsl: string, delta: number): string {
+  const m = /^(-?\d+)\s+(\d+)%\s+(\d+)%$/.exec(hsl);
+  if (!m) return hsl;
+  const h = m[1], s = m[2];
+  const l = Math.max(0, Math.min(100, parseInt(m[3]!, 10) + delta));
+  return `${h} ${s}% ${l}%`;
+}
+
+function contrastRatio(lumA: number, lumB: number): number {
+  const [lo, hi] = lumA < lumB ? [lumA, lumB] : [lumB, lumA];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function pickContrastHsl(hex: string): string {
+  // WCAG-based: pick whichever of pure black/white yields higher contrast
+  const lum = hexLuminance(hex);
+  const cWhite = contrastRatio(lum, 1);
+  const cBlack = contrastRatio(lum, 0);
+  return cWhite >= cBlack ? "0 0% 100%" : "0 0% 10%";
+}
+
+function buildPublicTheme(primaryHex: string, secondaryHex: string): React.CSSProperties {
+  const bgHsl = hexToHsl(secondaryHex);
+  const primaryHsl = hexToHsl(primaryHex);
+  const bgLum = hexLuminance(secondaryHex);
+  const isDarkBg = bgLum < 0.5;
+  const primaryFg = pickContrastHsl(primaryHex);
+
+  if (isDarkBg) {
+    return {
+      "--background": bgHsl,
+      "--foreground": "0 0% 96%",
+      "--card": adjustHslL(bgHsl, 6),
+      "--card-foreground": "0 0% 96%",
+      "--popover": adjustHslL(bgHsl, 6),
+      "--popover-foreground": "0 0% 96%",
+      "--primary": primaryHsl,
+      "--primary-foreground": primaryFg,
+      "--secondary": adjustHslL(bgHsl, 10),
+      "--secondary-foreground": "0 0% 95%",
+      "--muted": adjustHslL(bgHsl, 8),
+      "--muted-foreground": "0 0% 70%",
+      "--accent": adjustHslL(bgHsl, 12),
+      "--accent-foreground": "0 0% 96%",
+      "--destructive": "0 84% 60%",
+      "--destructive-foreground": "0 0% 100%",
+      "--border": adjustHslL(bgHsl, 14),
+      "--input": adjustHslL(bgHsl, 14),
+      "--ring": primaryHsl,
+    } as React.CSSProperties;
+  }
+
+  return {
+    "--background": bgHsl,
+    "--foreground": "20 14% 16%",
+    "--card": "0 0% 100%",
+    "--card-foreground": "20 14% 16%",
+    "--popover": "0 0% 100%",
+    "--popover-foreground": "20 14% 16%",
+    "--primary": primaryHsl,
+    "--primary-foreground": primaryFg,
+    "--secondary": adjustHslL(bgHsl, -6),
+    "--secondary-foreground": "345 60% 25%",
+    "--muted": adjustHslL(bgHsl, -4),
+    "--muted-foreground": "25 10% 45%",
+    "--accent": "35 85% 55%",
+    "--accent-foreground": "20 14% 16%",
+    "--destructive": "0 84% 60%",
+    "--destructive-foreground": "0 0% 100%",
+    "--border": adjustHslL(bgHsl, -10),
+    "--input": adjustHslL(bgHsl, -10),
+    "--ring": primaryHsl,
+  } as React.CSSProperties;
+}
+
 function toDateStr(d: Date): string {
   return format(d, "yyyy-MM-dd");
 }
@@ -192,28 +277,9 @@ export default function PublicBookingPage() {
   const primaryColor = tenant.primaryColor || '#7D2535';
   const secondaryColor = tenant.secondaryColor || '#FAF7F5';
 
-  // Force light-mode base palette + tenant's brand color, ignoring any dark mode state
-  const publicThemeVars = {
-    '--background': hexToHsl(secondaryColor),
-    '--foreground': '20 14% 16%',
-    '--card': '0 0% 100%',
-    '--card-foreground': '20 14% 16%',
-    '--popover': '0 0% 100%',
-    '--popover-foreground': '20 14% 16%',
-    '--primary': hexToHsl(primaryColor),
-    '--primary-foreground': '0 0% 100%',
-    '--secondary': '35 30% 90%',
-    '--secondary-foreground': '345 60% 25%',
-    '--muted': '40 20% 92%',
-    '--muted-foreground': '25 10% 45%',
-    '--accent': '35 85% 55%',
-    '--accent-foreground': '20 14% 16%',
-    '--destructive': '0 84% 60%',
-    '--destructive-foreground': '0 0% 100%',
-    '--border': '40 15% 85%',
-    '--input': '40 15% 85%',
-    '--ring': hexToHsl(primaryColor),
-  } as React.CSSProperties;
+  // Theme adapts to the tenant's chosen background — works for light AND dark bg
+  // so text/cards/header stay readable no matter what colors the user picks.
+  const publicThemeVars = buildPublicTheme(primaryColor, secondaryColor);
 
   const handlePhotoAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -426,8 +492,8 @@ export default function PublicBookingPage() {
 
   return (
     <div className="min-h-screen bg-background" style={publicThemeVars}>
-      {/* Header */}
-      <div className="bg-card border-b border-border/50 sticky top-0 z-20">
+      {/* Header — uses page background so it blends with the chosen color */}
+      <div className="bg-background border-b border-border/50 sticky top-0 z-20">
         <div className="max-w-3xl mx-auto px-4 h-20 flex items-center gap-4">
           {step > 0 && (
             <button onClick={() => setStep(step - 1)} className="p-2 hover:bg-secondary rounded-full transition-colors">
@@ -437,7 +503,7 @@ export default function PublicBookingPage() {
           {tenant.logoUrl ? (
             <img src={tenant.logoUrl} className="w-12 h-12 rounded-full object-cover border-2 border-primary/20" alt="Logo" />
           ) : (
-            <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xl">{tenant.name.charAt(0)}</div>
+            <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl">{tenant.name.charAt(0)}</div>
           )}
           <div>
             <h1 className="text-xl font-bold font-display leading-tight">{tenant.name}</h1>
@@ -763,7 +829,7 @@ export default function PublicBookingPage() {
                           ${isDisabled
                             ? "text-muted-foreground/30 cursor-not-allowed"
                             : isSelected
-                              ? "text-white shadow-lg scale-105"
+                              ? "text-primary-foreground shadow-lg scale-105"
                               : isTodayDay
                                 ? "ring-2 ring-primary text-foreground hover:bg-primary/10 cursor-pointer"
                                 : "text-foreground hover:bg-secondary cursor-pointer"

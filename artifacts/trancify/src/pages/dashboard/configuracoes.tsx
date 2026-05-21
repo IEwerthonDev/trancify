@@ -31,6 +31,37 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${parseInt(result[1]!, 16)},${parseInt(result[2]!, 16)},${parseInt(result[3]!, 16)},${alpha})`;
 }
 
+function hexLuminance(hex: string): number {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return 1;
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const r = lin(parseInt(m[1]!, 16) / 255);
+  const g = lin(parseInt(m[2]!, 16) / 255);
+  const b = lin(parseInt(m[3]!, 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function shadeHex(hex: string, percent: number): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return hex;
+  const adjust = (c: number) => {
+    const v = Math.round(c + (percent > 0 ? (255 - c) * percent : c * percent));
+    return Math.max(0, Math.min(255, v));
+  };
+  const r = adjust(parseInt(m[1]!, 16));
+  const g = adjust(parseInt(m[2]!, 16));
+  const b = adjust(parseInt(m[3]!, 16));
+  return `#${[r, g, b].map(x => x.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function getContrastText(hex: string): string {
+  // WCAG: pick whichever of pure black/white has the higher contrast ratio
+  const lum = hexLuminance(hex);
+  const cWhite = (1 + 0.05) / (lum + 0.05);
+  const cBlack = (lum + 0.05) / (0 + 0.05);
+  return cWhite >= cBlack ? "#ffffff" : "#1a1a1a";
+}
+
 export default function ConfiguracoesPage() {
   const { data: tenant, isLoading } = useGetMyTenant();
   const updateMutation = useUpdateMyTenant();
@@ -767,6 +798,8 @@ const COLOR_PRESETS = [
   { label: "Marrom terroso", primary: "#5D4037", secondary: "#FDF6F0" },
   { label: "Laranja vibrante", primary: "#E65100", secondary: "#FFF8F0" },
   { label: "Preto & branco", primary: "#1A1A1A", secondary: "#FAFAFA" },
+  { label: "Dark mode", primary: "#E11D48", secondary: "#0F0F12" },
+  { label: "Dourado luxuoso", primary: "#D4A24C", secondary: "#1A1410" },
 ];
 
 function BookingPreview({ primaryColor, secondaryColor, salonName }: {
@@ -777,16 +810,28 @@ function BookingPreview({ primaryColor, secondaryColor, salonName }: {
   const initial = salonName.charAt(0).toUpperCase();
   const [activeStep, setActiveStep] = useState<0 | 1 | 2>(0);
 
+  const isDarkBg = hexLuminance(secondaryColor) < 0.5;
+  const primaryFg = getContrastText(primaryColor);
+  // Cards sit slightly off the page bg so they're visible in both modes
+  const cardBg = isDarkBg ? shadeHex(secondaryColor, 0.08) : "#ffffff";
+  const cardBorder = isDarkBg ? shadeHex(secondaryColor, 0.18) : "#E5E7EB";
+  const titleText = isDarkBg ? "#F4F4F5" : "#1F2937";
+  const bodyText = isDarkBg ? "#D4D4D8" : "#374151";
+  const mutedText = isDarkBg ? "#A1A1AA" : "#9CA3AF";
+  const tabInactive = isDarkBg ? "#A1A1AA" : "#888";
+  const tabBarBg = isDarkBg ? shadeHex(secondaryColor, 0.05) : "rgba(0,0,0,0.02)";
+  const progressTrack = isDarkBg ? shadeHex(secondaryColor, 0.15) : "#E5E7EB";
+
   return (
     <div className="rounded-2xl overflow-hidden border border-border shadow-lg" style={{ fontFamily: "inherit" }}>
       {/* Step tabs */}
-      <div className="flex border-b border-border bg-secondary/30">
+      <div className="flex border-b" style={{ background: tabBarBg, borderColor: cardBorder }}>
         {(["Início", "Serviço", "Tamanho"] as const).map((label, i) => (
           <button
             key={label}
             onClick={() => setActiveStep(i as 0 | 1 | 2)}
             className="flex-1 py-2 text-xs font-bold transition-all"
-            style={activeStep === i ? { color: primaryColor, borderBottom: `2px solid ${primaryColor}`, background: hexToRgba(primaryColor, 0.05) } : { color: '#888' }}
+            style={activeStep === i ? { color: primaryColor, borderBottom: `2px solid ${primaryColor}`, background: hexToRgba(primaryColor, 0.08) } : { color: tabInactive }}
           >
             {label}
           </button>
@@ -794,17 +839,16 @@ function BookingPreview({ primaryColor, secondaryColor, salonName }: {
       </div>
 
       <div style={{ background: secondaryColor }}>
-        {/* Mini header */}
-        <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: primaryColor }}>
+        {/* Mini header — blends with the chosen background */}
+        <div className="px-4 py-3 flex items-center gap-2.5 border-b" style={{ background: secondaryColor, borderColor: cardBorder }}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style={{ background: primaryColor, color: primaryFg }}>
             {initial}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-gray-800 truncate">{salonName}</div>
-            <div className="text-[10px] text-gray-400 uppercase tracking-wider">Agendamento Online</div>
+            <div className="text-sm font-bold truncate" style={{ color: titleText }}>{salonName}</div>
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: mutedText }}>Agendamento Online</div>
           </div>
-          {/* Progress bar */}
-          <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden">
+          <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: progressTrack }}>
             <div className="h-full rounded-full transition-all" style={{ background: primaryColor, width: activeStep === 0 ? "0%" : activeStep === 1 ? "25%" : "50%" }} />
           </div>
         </div>
@@ -813,22 +857,22 @@ function BookingPreview({ primaryColor, secondaryColor, salonName }: {
         {activeStep === 0 && (
           <div className="p-4 space-y-3">
             <div className="text-center py-2">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl mb-2" style={{ background: hexToRgba(primaryColor, 0.1) }}>
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl mb-2" style={{ background: hexToRgba(primaryColor, 0.12) }}>
                 <Sparkles className="w-5 h-5" style={{ color: primaryColor }} />
               </div>
-              <div className="text-sm font-bold text-gray-800">Antes de começar</div>
-              <div className="text-xs text-gray-400 mt-0.5">Leia as informações abaixo</div>
+              <div className="text-sm font-bold" style={{ color: titleText }}>Antes de começar</div>
+              <div className="text-xs mt-0.5" style={{ color: mutedText }}>Leia as informações abaixo</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-3 flex gap-3">
-              <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center" style={{ background: hexToRgba(primaryColor, 0.1) }}>
+            <div className="rounded-xl border p-3 flex gap-3" style={{ background: cardBg, borderColor: cardBorder }}>
+              <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center" style={{ background: hexToRgba(primaryColor, 0.12) }}>
                 <span className="text-xs font-bold" style={{ color: primaryColor }}>$</span>
               </div>
               <div>
-                <div className="text-xs font-bold text-gray-800">Como funciona o pagamento?</div>
-                <div className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">Pix, cartão ou dinheiro — combinado diretamente com a trancista.</div>
+                <div className="text-xs font-bold" style={{ color: titleText }}>Como funciona o pagamento?</div>
+                <div className="text-[10px] mt-0.5 leading-relaxed" style={{ color: mutedText }}>Pix, cartão ou dinheiro — combinado diretamente com a trancista.</div>
               </div>
             </div>
-            <button className="w-full py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-1" style={{ background: primaryColor }}>
+            <button className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1" style={{ background: primaryColor, color: primaryFg }}>
               Começar agendamento <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -837,7 +881,7 @@ function BookingPreview({ primaryColor, secondaryColor, salonName }: {
         {/* Step 1 — Service */}
         {activeStep === 1 && (
           <div className="p-4 space-y-2">
-            <div className="text-sm font-bold text-gray-800 mb-3">1. Qual serviço você deseja?</div>
+            <div className="text-sm font-bold mb-3" style={{ color: titleText }}>1. Qual serviço você deseja?</div>
             {[
               { name: "Box Braids", desc: "Tranças individuais", price: "R$ 200", dur: "6h" },
               { name: "Nagô", desc: "Tranças raiz", price: "R$ 150", dur: "4h" },
@@ -845,14 +889,14 @@ function BookingPreview({ primaryColor, secondaryColor, salonName }: {
             ].map((s, i) => (
               <div
                 key={s.name}
-                className="bg-white rounded-xl border-2 p-3 flex justify-between items-start transition-all cursor-pointer"
-                style={i === 0 ? { borderColor: primaryColor } : { borderColor: '#E5E7EB' }}
+                className="rounded-xl border-2 p-3 flex justify-between items-start transition-all cursor-pointer"
+                style={{ background: cardBg, borderColor: i === 0 ? primaryColor : cardBorder }}
               >
                 <div>
-                  <div className="text-xs font-bold" style={i === 0 ? { color: primaryColor } : { color: '#1A1A1A' }}>{s.name}</div>
-                  <div className="text-[10px] text-gray-400">{s.desc} · ~{s.dur}</div>
+                  <div className="text-xs font-bold" style={{ color: i === 0 ? primaryColor : titleText }}>{s.name}</div>
+                  <div className="text-[10px]" style={{ color: mutedText }}>{s.desc} · ~{s.dur}</div>
                 </div>
-                <div className="text-xs font-bold" style={i === 0 ? { color: primaryColor } : { color: '#666' }}>{s.price}</div>
+                <div className="text-xs font-bold" style={{ color: i === 0 ? primaryColor : bodyText }}>{s.price}</div>
               </div>
             ))}
           </div>
@@ -861,21 +905,21 @@ function BookingPreview({ primaryColor, secondaryColor, salonName }: {
         {/* Step 2 — Size */}
         {activeStep === 2 && (
           <div className="p-4 space-y-2">
-            <div className="text-sm font-bold text-gray-800 mb-1">2. Qual o tamanho?</div>
-            <div className="text-[10px] text-gray-400 mb-3">O tamanho influencia no valor e tempo do serviço.</div>
+            <div className="text-sm font-bold mb-1" style={{ color: titleText }}>2. Qual o tamanho?</div>
+            <div className="text-[10px] mb-3" style={{ color: mutedText }}>O tamanho influencia no valor e tempo do serviço.</div>
             <div
-              className="bg-white rounded-xl border-2 p-3"
-              style={{ borderColor: primaryColor, background: hexToRgba(primaryColor, 0.04) }}
+              className="rounded-xl border-2 p-3"
+              style={{ borderColor: primaryColor, background: hexToRgba(primaryColor, isDarkBg ? 0.15 : 0.06) }}
             >
-              <div className="text-xs font-bold text-gray-800">Até o meio das costas</div>
+              <div className="text-xs font-bold" style={{ color: titleText }}>Até o meio das costas</div>
               <div className="text-sm font-bold mt-0.5" style={{ color: primaryColor }}>R$ 200,00</div>
             </div>
-            <div className="bg-white rounded-xl border-2 border-gray-200 p-3">
-              <div className="text-xs font-bold text-gray-600">Até a cintura / Bumbum</div>
-              <div className="text-sm font-bold text-gray-400 mt-0.5">R$ 350,00</div>
+            <div className="rounded-xl border-2 p-3" style={{ background: cardBg, borderColor: cardBorder }}>
+              <div className="text-xs font-bold" style={{ color: bodyText }}>Até a cintura / Bumbum</div>
+              <div className="text-sm font-bold mt-0.5" style={{ color: mutedText }}>R$ 350,00</div>
             </div>
             <div className="flex justify-end pt-1">
-              <button className="px-4 py-2 rounded-full text-white text-xs font-bold flex items-center gap-1" style={{ background: primaryColor }}>
+              <button className="px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1" style={{ background: primaryColor, color: primaryFg }}>
                 Avançar <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
