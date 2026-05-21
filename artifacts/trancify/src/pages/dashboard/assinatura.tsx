@@ -136,6 +136,12 @@ export default function AssinaturaPage() {
     },
   });
 
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -145,12 +151,6 @@ export default function AssinaturaPage() {
       </DashboardLayout>
     );
   }
-
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
-  }, []);
 
   const status = sub?.subscriptionStatus ?? "trial";
   const plan = sub?.subscriptionPlan;
