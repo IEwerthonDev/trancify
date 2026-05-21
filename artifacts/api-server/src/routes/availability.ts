@@ -18,6 +18,13 @@ const updateAvailabilitySchema = z.object({
   blockedDates: z.array(z.string()).optional(),
 });
 
+const blockRangeSchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const unblockRangeSchema = blockRangeSchema;
+
 async function getOrCreateAvailability(tenantId: string) {
   let [avail] = await db.select().from(availabilityTable).where(eq(availabilityTable.tenantId, tenantId)).limit(1);
 
@@ -73,6 +80,63 @@ router.put("/", requireTenant, async (req: AuthRequest, res) => {
     res.json(formatAvailability(updated!));
   } catch (err) {
     req.log.error({ err }, "Update availability error");
+    res.status(500).json({ error: "InternalError", message: "Erro interno" });
+  }
+});
+
+// POST /availability/block-range — bulk-block an inclusive date range
+router.post("/block-range", requireTenant, async (req: AuthRequest, res) => {
+  const parsed = blockRangeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "ValidationError", message: "Datas inválidas" });
+    return;
+  }
+  const { startDate, endDate } = parsed.data;
+  if (startDate > endDate) {
+    res.status(400).json({ error: "ValidationError", message: "Data inicial maior que a final" });
+    return;
+  }
+  try {
+    const existing = await getOrCreateAvailability(req.user!.tenantId!);
+    const set = new Set<string>(existing.blockedDates as string[]);
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      set.add(d.toISOString().slice(0, 10));
+    }
+    const [updated] = await db
+      .update(availabilityTable)
+      .set({ blockedDates: Array.from(set).sort(), updatedAt: new Date() })
+      .where(eq(availabilityTable.id, existing.id))
+      .returning();
+    res.json(formatAvailability(updated!));
+  } catch (err) {
+    req.log.error({ err }, "Block range error");
+    res.status(500).json({ error: "InternalError", message: "Erro interno" });
+  }
+});
+
+// POST /availability/unblock-range — bulk-unblock an inclusive date range
+router.post("/unblock-range", requireTenant, async (req: AuthRequest, res) => {
+  const parsed = unblockRangeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "ValidationError", message: "Datas inválidas" });
+    return;
+  }
+  const { startDate, endDate } = parsed.data;
+  try {
+    const existing = await getOrCreateAvailability(req.user!.tenantId!);
+    const remaining = (existing.blockedDates as string[]).filter(
+      (d) => d < startDate || d > endDate
+    );
+    const [updated] = await db
+      .update(availabilityTable)
+      .set({ blockedDates: remaining, updatedAt: new Date() })
+      .where(eq(availabilityTable.id, existing.id))
+      .returning();
+    res.json(formatAvailability(updated!));
+  } catch (err) {
+    req.log.error({ err }, "Unblock range error");
     res.status(500).json({ error: "InternalError", message: "Erro interno" });
   }
 });

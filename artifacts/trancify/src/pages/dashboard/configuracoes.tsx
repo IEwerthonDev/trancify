@@ -5,8 +5,9 @@ import { useChangePassword, useChangeEmail } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Save, KeyRound, Mail, Store, ExternalLink, Palette, ChevronRight, Sparkles, Upload, Link, X, ImageIcon, Globe } from "lucide-react";
+import { Save, KeyRound, Mail, Store, ExternalLink, Palette, ChevronRight, Sparkles, Upload, Link, X, ImageIcon, Globe, QrCode, Download, Share2, Copy } from "lucide-react";
 import { useUpload } from "@workspace/object-storage-web";
+import { QRCodeCanvas } from "qrcode.react";
 
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -466,6 +467,7 @@ export default function ConfiguracoesPage() {
 
         {/* Info Sidebar */}
         <div className="space-y-6">
+          {tenant?.slug && <QrCodeShareCard slug={tenant.slug} salonName={tenant.name} primaryColor={profile.primaryColor} />}
           <div className="bg-secondary/50 rounded-[2rem] p-8 border border-border">
             <h3 className="text-xl font-display font-bold mb-4">Sua Página Pública</h3>
             {tenant?.slug && (
@@ -489,6 +491,86 @@ export default function ConfiguracoesPage() {
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+function QrCodeShareCard({ slug, salonName, primaryColor }: { slug: string; salonName: string; primaryColor: string }) {
+  const { toast } = useToast();
+  const publicUrl = `${window.location.origin}/${slug}`;
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  const handleDownload = () => {
+    const canvas = canvasRef.current?.querySelector("canvas");
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = `qrcode-${slug}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toast({ title: "Link copiado!" });
+    } catch {
+      toast({ title: "Erro ao copiar", variant: "destructive" });
+    }
+  };
+
+  const handleShare = async () => {
+    const text = `Olá! Agende seu horário comigo em ${salonName}: ${publicUrl}`;
+    if ((navigator as any).share) {
+      try {
+        await (navigator as any).share({ title: salonName, text, url: publicUrl });
+      } catch {}
+    } else {
+      const wppUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(wppUrl, "_blank");
+    }
+  };
+
+  return (
+    <div className="bg-card rounded-[2rem] p-8 border border-border/50 shadow-xl shadow-black/5">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+          <QrCode className="w-5 h-5" />
+        </div>
+        <h3 className="text-xl font-display font-bold">QR Code do salão</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-5">
+        Imprima e cole no salão, ou compartilhe o link para que clientes agendem.
+      </p>
+      <div ref={canvasRef} className="bg-white p-5 rounded-2xl flex items-center justify-center border border-border mb-4">
+        <QRCodeCanvas
+          value={publicUrl}
+          size={200}
+          fgColor={primaryColor}
+          bgColor="#FFFFFF"
+          level="M"
+          includeMargin={false}
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          onClick={handleDownload}
+          className="flex flex-col items-center gap-1 py-3 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors text-xs font-semibold"
+        >
+          <Download className="w-4 h-4" /> Baixar
+        </button>
+        <button
+          onClick={handleCopy}
+          className="flex flex-col items-center gap-1 py-3 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors text-xs font-semibold"
+        >
+          <Copy className="w-4 h-4" /> Copiar
+        </button>
+        <button
+          onClick={handleShare}
+          className="flex flex-col items-center gap-1 py-3 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-xs font-semibold"
+        >
+          <Share2 className="w-4 h-4" /> Compartilhar
+        </button>
+      </div>
+    </div>
   );
 }
 

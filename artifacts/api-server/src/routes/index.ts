@@ -6,6 +6,7 @@ import servicesRouter from "./services.js";
 import availabilityRouter from "./availability.js";
 import appointmentsRouter from "./appointments.js";
 import reportsRouter from "./reports.js";
+import reviewsRouter from "./reviews.js";
 import adminRouter from "./admin.js";
 import storageRouter from "./storage.js";
 
@@ -18,6 +19,7 @@ router.use("/services", servicesRouter);
 router.use("/availability", availabilityRouter);
 router.use("/appointments", appointmentsRouter);
 router.use("/reports", reportsRouter);
+router.use("/reviews", reviewsRouter);
 router.use("/admin", adminRouter);
 router.use("/storage", storageRouter);
 

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, real, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, real, boolean, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
@@ -13,6 +13,7 @@ export const servicesTable = pgTable("services", {
   priceLarge: real("price_large").notNull(),
   sizeDependent: boolean("size_dependent").notNull().default(false),
   active: boolean("active").notNull().default(true),
+  referencePhotos: json("reference_photos").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

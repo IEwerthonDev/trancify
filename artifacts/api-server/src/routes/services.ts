@@ -13,6 +13,7 @@ const createServiceSchema = z.object({
   priceSmall: z.number().positive(),
   priceLarge: z.number().positive(),
   sizeDependent: z.boolean().optional().default(true),
+  referencePhotos: z.array(z.string()).max(6).optional(),
 });
 
 const updateServiceSchema = createServiceSchema.partial().extend({
@@ -30,6 +31,7 @@ function formatService(service: typeof servicesTable.$inferSelect) {
     priceLarge: service.priceLarge,
     sizeDependent: service.sizeDependent,
     active: service.active,
+    referencePhotos: (service.referencePhotos as string[]) ?? [],
   };
 }
 

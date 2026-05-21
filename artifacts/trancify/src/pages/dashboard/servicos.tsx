@@ -5,8 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Scissors, Plus, Pencil, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Scissors, Plus, Pencil, Trash2, CheckCircle2, XCircle, ImagePlus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useRef } from "react";
+
+const MAX_REF_PHOTOS = 4;
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function ServicosPage() {
   const { data: services, isLoading, refetch } = useGetMyServices();
@@ -139,7 +151,27 @@ function ServiceForm({ initialData, onSuccess }: { initialData?: any, onSuccess:
     priceSmall: initialData?.priceSmall?.toString() || "",
     priceLarge: initialData?.priceLarge?.toString() || "",
   });
+  const [referencePhotos, setReferencePhotos] = useState<string[]>(
+    Array.isArray(initialData?.referencePhotos) ? initialData.referencePhotos : []
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handlePhotoAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = MAX_REF_PHOTOS - referencePhotos.length;
+    for (const file of files.slice(0, remaining)) {
+      if (file.size > 3 * 1024 * 1024) {
+        toast({ title: "Foto muito grande", description: "Máximo 3 MB por foto.", variant: "destructive" });
+        continue;
+      }
+      const base64 = await fileToBase64(file);
+      setReferencePhotos((p) => [...p, base64]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removePhoto = (idx: number) => setReferencePhotos((p) => p.filter((_, i) => i !== idx));
 
   const createMutation = useCreateService();
   const updateMutation = useUpdateService();
@@ -175,12 +207,13 @@ function ServiceForm({ initialData, onSuccess }: { initialData?: any, onSuccess:
     e.preventDefault();
     if (!validate()) return;
 
-    const payload = {
+    const payload: any = {
       name: formData.name.trim(),
       description: formData.description.trim() || undefined,
       durationHours: Number(formData.durationHours),
       priceSmall: Number(formData.priceSmall),
       priceLarge: Number(formData.priceLarge),
+      referencePhotos,
     };
 
     try {
@@ -258,6 +291,46 @@ function ServiceForm({ initialData, onSuccess }: { initialData?: any, onSuccess:
           className={errors.durationHours ? "border-destructive" : ""}
         />
         {errors.durationHours && <p className="text-xs text-destructive mt-1">{errors.durationHours}</p>}
+      </div>
+      <div>
+        <label className="text-sm font-semibold mb-1 block">
+          Fotos de exemplo <span className="text-muted-foreground font-normal">(opcional — até {MAX_REF_PHOTOS})</span>
+        </label>
+        <p className="text-xs text-muted-foreground mb-3">
+          Aparecem na página pública para que clientes vejam o estilo da trança.
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          {referencePhotos.map((src, idx) => (
+            <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-border group">
+              <img src={src} alt={`Exemplo ${idx + 1}`} className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removePhoto(idx)}
+                className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center"
+              >
+                <X className="w-3 h-3 text-white" />
+              </button>
+            </div>
+          ))}
+          {referencePhotos.length < MAX_REF_PHOTOS && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-20 h-20 rounded-xl border-2 border-dashed border-border hover:border-primary/60 flex flex-col items-center justify-center gap-1 transition-colors"
+            >
+              <ImagePlus className="w-5 h-5 text-muted-foreground" />
+              <span className="text-[10px] font-semibold text-muted-foreground">Adicionar</span>
+            </button>
+          )}
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          className="hidden"
+          onChange={handlePhotoAdd}
+        />
       </div>
       <Button type="submit" className="w-full h-14 text-lg" disabled={isPending}>
         {isPending ? "Salvando..." : initialData ? "Salvar Alterações" : "Criar Serviço"}

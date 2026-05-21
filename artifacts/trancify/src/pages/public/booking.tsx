@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useGetPublicTenant, useGetPublicServices, useGetPublicAvailability, useGetPublicAvailabilityDates, useBookAppointment } from "@workspace/api-client-react";
+import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
@@ -85,6 +87,17 @@ export default function PublicBookingPage() {
 
   const { data: tenant, isLoading: loadTenant, error: tenantErr } = useGetPublicTenant(slug || "");
   const { data: services } = useGetPublicServices(tenant?.id || "", { query: { enabled: !!tenant?.id } });
+
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data: publicReviews } = useQuery<Array<{ id: string; clientName: string; rating: number; comment: string | null; createdAt: string }>>({
+    queryKey: ["public-reviews", tenant?.id],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/reviews/public/${tenant!.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!tenant?.id,
+  });
 
   // step 0 = intro, 1 = service, 2 = size, 3 = date/time, 4 = client data
   const [step, setStep] = useState(0);
@@ -400,6 +413,41 @@ export default function PublicBookingPage() {
                   <ChevronRight className="w-6 h-6 ml-2" />
                 </Button>
               </div>
+
+              {publicReviews && publicReviews.length > 0 && (
+                <div className="mt-12">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-2xl font-display font-bold text-foreground">
+                      O que dizem as clientes
+                    </h3>
+                    <div className="flex items-center gap-1 bg-amber-50 px-3 py-1.5 rounded-full">
+                      <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                      <span className="text-sm font-bold text-amber-900">
+                        {(publicReviews.reduce((acc, r) => acc + r.rating, 0) / publicReviews.length).toFixed(1)}
+                      </span>
+                      <span className="text-xs text-amber-800">({publicReviews.length})</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {publicReviews.slice(0, 6).map((r) => (
+                      <div key={r.id} className="bg-card border border-border/60 rounded-2xl p-5 shadow-sm">
+                        <div className="flex items-center gap-1 mb-2">
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <Star
+                              key={i}
+                              className={`w-4 h-4 ${i <= r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/25"}`}
+                            />
+                          ))}
+                        </div>
+                        {r.comment && (
+                          <p className="text-foreground text-sm italic line-clamp-4 mb-2">"{r.comment}"</p>
+                        )}
+                        <p className="text-xs font-semibold text-muted-foreground">— {r.clientName}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -408,27 +456,43 @@ export default function PublicBookingPage() {
             <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <h2 className="text-3xl font-display font-bold mb-6">1. Qual serviço você deseja?</h2>
               <div className="space-y-4">
-                {services?.filter(s => s.active).map(service => (
-                  <div
-                    key={service.id}
-                    onClick={() => { setSelectedService(service); setStep(2); }}
-                    className="bg-card p-6 rounded-3xl border-2 border-border/50 hover:border-primary cursor-pointer transition-all shadow-md hover:shadow-xl group"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{service.name}</h3>
-                        <p className="text-muted-foreground text-sm mb-4 line-clamp-2">{service.description}</p>
-                        <span className="bg-secondary text-secondary-foreground text-xs font-bold px-2 py-1 rounded-md">
-                          Duração: ~{service.durationHours}h
-                        </span>
+                {services?.filter(s => s.active).map((service: any) => {
+                  const photos: string[] = Array.isArray(service.referencePhotos) ? service.referencePhotos : [];
+                  return (
+                    <div
+                      key={service.id}
+                      onClick={() => { setSelectedService(service); setStep(2); }}
+                      className="bg-card p-6 rounded-3xl border-2 border-border/50 hover:border-primary cursor-pointer transition-all shadow-md hover:shadow-xl group"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{service.name}</h3>
+                          <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{service.description}</p>
+                          <span className="bg-secondary text-secondary-foreground text-xs font-bold px-2 py-1 rounded-md">
+                            Duração: ~{service.durationHours}h
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0 ml-3">
+                          <span className="text-xs text-muted-foreground block">A partir de</span>
+                          <span className="text-xl font-bold text-foreground">{formatCurrency(service.priceSmall)}</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs text-muted-foreground block">A partir de</span>
-                        <span className="text-xl font-bold text-foreground">{formatCurrency(service.priceSmall)}</span>
-                      </div>
+                      {photos.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pt-3 border-t border-border/40 -mx-1 px-1">
+                          {photos.slice(0, 4).map((src, i) => (
+                            <img
+                              key={i}
+                              src={src}
+                              alt={`${service.name} exemplo ${i + 1}`}
+                              loading="lazy"
+                              className="w-20 h-20 object-cover rounded-xl border border-border shrink-0"
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           )}

@@ -4,7 +4,7 @@ import { useGetMyAvailability, useUpdateAvailability } from "@workspace/api-clie
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Save, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { Clock, Save, ChevronLeft, ChevronRight, Info, Plane, X } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -15,6 +15,8 @@ import {
   isToday,
   startOfDay,
   addMonths,
+  parseISO,
+  isAfter,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -36,6 +38,9 @@ export default function DisponibilidadePage() {
   const [monthOffset, setMonthOffset] = useState(0);
 
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [vacationOpen, setVacationOpen] = useState(false);
+  const [vacationStart, setVacationStart] = useState("");
+  const [vacationEnd, setVacationEnd] = useState("");
   const [timeSettings, setTimeSettings] = useState({
     startTime: "08:00",
     endTime: "17:00",
@@ -72,6 +77,33 @@ export default function DisponibilidadePage() {
     setSelectedDates(prev =>
       prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr]
     );
+  };
+
+  const handleBlockVacation = () => {
+    if (!vacationStart || !vacationEnd) {
+      toast({ title: "Informe início e fim do período", variant: "destructive" });
+      return;
+    }
+    const start = parseISO(vacationStart);
+    const end = parseISO(vacationEnd);
+    if (isAfter(start, end)) {
+      toast({ title: "Data inicial deve ser antes da final", variant: "destructive" });
+      return;
+    }
+    const rangeDates = new Set(
+      eachDayOfInterval({ start, end }).map((d) => toDateStr(d))
+    );
+    const removed = selectedDates.filter((d) => rangeDates.has(d)).length;
+    setSelectedDates((prev) => prev.filter((d) => !rangeDates.has(d)));
+    setVacationOpen(false);
+    setVacationStart("");
+    setVacationEnd("");
+    toast({
+      title: "Período bloqueado",
+      description: removed > 0
+        ? `${removed} dia(s) removidos do calendário. Não esqueça de salvar.`
+        : "Nenhum dia disponível havia neste período. Salve para confirmar.",
+    });
   };
 
   const handleSave = async () => {
@@ -300,6 +332,42 @@ export default function DisponibilidadePage() {
                 <p>Clique em um dia selecionado para desmarcá-lo e remover a disponibilidade.</p>
               </li>
             </ul>
+          </div>
+
+          {/* Vacation / Period block */}
+          <div className="bg-card rounded-[2rem] p-6 border border-border/50">
+            <div className="flex items-center gap-2 mb-3">
+              <Plane className="w-5 h-5 text-amber-600" />
+              <h3 className="text-lg font-display font-bold">Férias ou folga prolongada</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Bloqueie um período inteiro de uma vez — útil para férias, viagens ou folgas.
+            </p>
+            {!vacationOpen ? (
+              <Button variant="outline" className="w-full" onClick={() => setVacationOpen(true)}>
+                Bloquear período
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 block">De</label>
+                  <Input type="date" value={vacationStart} onChange={(e) => setVacationStart(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Até</label>
+                  <Input type="date" value={vacationEnd} onChange={(e) => setVacationEnd(e.target.value)} />
+                </div>
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={handleBlockVacation}>Confirmar bloqueio</Button>
+                  <Button variant="outline" onClick={() => { setVacationOpen(false); setVacationStart(""); setVacationEnd(""); }}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Os dias do período serão removidos do calendário ao confirmar. Lembre-se de clicar em <strong>Salvar Disponibilidade</strong> depois.
+                </p>
+              </div>
+            )}
           </div>
 
           {selectedDates.length > 0 && (

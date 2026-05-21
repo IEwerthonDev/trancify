@@ -2,7 +2,7 @@ import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useGetTenantReport } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/utils";
-import { DollarSign, TrendingUp, TrendingDown, Calendar, CheckCircle } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Calendar, CheckCircle, Award, Receipt } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -171,7 +171,13 @@ export default function RelatoriosPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Ticket médio</span>
                 <span className="font-bold">
-                  {formatCurrency(report.totalRevenue / Math.max(report.totalAppointments, 1))}
+                  {formatCurrency((report as any).avgTicket ?? (report.totalRevenue / Math.max(report.totalAppointments, 1)))}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Lucro médio por cliente</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency((report as any).avgProfit ?? (report.totalProfit / Math.max(report.totalAppointments, 1)))}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -186,6 +192,46 @@ export default function RelatoriosPage() {
           )}
         </div>
       </div>
+
+      {/* Top Services */}
+      {((report as any)?.topServices?.length ?? 0) > 0 && (
+        <div className="mt-8 bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 p-5 sm:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl">
+              <Award className="w-5 h-5" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-display font-bold">Serviços mais lucrativos</h2>
+          </div>
+          <div className="space-y-3">
+            {((report as any).topServices as Array<any>).map((s, i) => {
+              const maxRev = (report as any).topServices[0].revenue || 1;
+              const pct = Math.round((s.revenue / maxRev) * 100);
+              return (
+                <div key={s.serviceId ?? i} className="bg-background rounded-2xl p-4 border border-border/40">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${i === 0 ? "bg-amber-100 text-amber-700" : i === 1 ? "bg-stone-200 text-stone-700" : i === 2 ? "bg-orange-100 text-orange-700" : "bg-secondary text-muted-foreground"}`}>
+                        {i + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-foreground truncate">{s.serviceName}</p>
+                        <p className="text-xs text-muted-foreground">{s.appointments} agendamento{s.appointments !== 1 ? "s" : ""}</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-primary">{formatCurrency(s.revenue)}</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Lucro: {formatCurrency(s.profit)}</p>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

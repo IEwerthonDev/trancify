@@ -5,8 +5,9 @@ function isConfigured(): boolean {
   return Boolean(CALLMEBOT_APIKEY && CALLMEBOT_PHONE);
 }
 
-async function sendCallMeBot(message: string): Promise<void> {
-  const phone = CALLMEBOT_PHONE!.replace(/\D/g, "");
+async function sendCallMeBot(message: string, destinationPhone?: string | null): Promise<void> {
+  const raw = (destinationPhone && destinationPhone.trim()) || CALLMEBOT_PHONE!;
+  const phone = raw.replace(/\D/g, "");
   const url = new URL("https://api.callmebot.com/whatsapp.php");
   url.searchParams.set("phone", phone);
   url.searchParams.set("text", message);
@@ -53,6 +54,66 @@ function formatDate(date: string): string {
 
 function formatPrice(value: number): string {
   return `R$ ${value.toFixed(2).replace(".", ",")}`;
+}
+
+function publicBaseUrl(): string {
+  return process.env.PUBLIC_BASE_URL || "https://trancify.com.br";
+}
+
+export interface ReminderData {
+  kind: "24h" | "2h";
+  clientName: string;
+  clientPhone: string;
+  serviceName: string;
+  date: string;
+  time: string;
+  tenantName: string;
+  tenantPhone?: string | null;
+}
+
+export async function sendReminderNotification(data: ReminderData): Promise<void> {
+  if (!isConfigured()) {
+    console.log("[WhatsApp] not configured — reminder skipped.");
+    return;
+  }
+  const when = data.kind === "24h" ? "amanhã" : "em 2 horas";
+  const lines: string[] = [
+    `🔔 Lembrete: você tem agendamento ${when}!`,
+    ``,
+    `Olá ${data.clientName.split(" ")[0]}! Passando para lembrar do seu horário em ${data.tenantName}:`,
+    ``,
+    `✂️ ${data.serviceName}`,
+    `📅 ${formatDate(data.date)} às ${data.time}`,
+  ];
+  if (data.tenantPhone) {
+    lines.push(``, `Em caso de dúvidas, fale com a trancista no WhatsApp: ${data.tenantPhone}`);
+  }
+  await sendCallMeBot(lines.join("\n"), data.clientPhone);
+}
+
+export interface ReviewRequestData {
+  clientName: string;
+  clientPhone: string;
+  serviceName: string;
+  tenantName: string;
+  reviewToken: string;
+}
+
+export async function sendReviewRequestNotification(data: ReviewRequestData): Promise<void> {
+  if (!isConfigured()) {
+    console.log("[WhatsApp] not configured — review request skipped.");
+    return;
+  }
+  const url = `${publicBaseUrl()}/avaliar/${data.reviewToken}`;
+  const lines: string[] = [
+    `⭐ Como foi seu atendimento?`,
+    ``,
+    `Olá ${data.clientName.split(" ")[0]}! Obrigada por escolher ${data.tenantName} para fazer seu ${data.serviceName}.`,
+    ``,
+    `Sua opinião é muito importante. Avalie o atendimento aqui:`,
+    url,
+  ];
+  await sendCallMeBot(lines.join("\n"), data.clientPhone);
 }
 
 export async function sendBookingNotification(data: BookingNotificationData): Promise<void> {

@@ -55,8 +55,13 @@ function formatAppointment(appt: typeof appointmentsTable.$inferSelect) {
     status: appt.status,
     token: appt.token,
     notes: appt.notes ?? null,
+    reviewToken: appt.reviewToken,
     createdAt: appt.createdAt.toISOString(),
   };
+}
+
+function normalizePhone(p?: string | null): string {
+  return (p ?? "").replace(/\D/g, "");
 }
 
 router.get("/", requireTenant, async (req: AuthRequest, res) => {
@@ -87,6 +92,60 @@ router.get("/", requireTenant, async (req: AuthRequest, res) => {
     res.json(filtered.map(formatAppointment));
   } catch (err) {
     req.log.error({ err }, "Get appointments error");
+    res.status(500).json({ error: "InternalError", message: "Erro interno" });
+  }
+});
+
+// GET /appointments/clients/history — aggregate appointments by client
+router.get("/clients/history", requireTenant, async (req: AuthRequest, res) => {
+  try {
+    const appts = await db
+      .select()
+      .from(appointmentsTable)
+      .where(eq(appointmentsTable.tenantId, req.user!.tenantId!))
+      .orderBy(desc(appointmentsTable.date));
+
+    const map = new Map<string, {
+      clientKey: string;
+      clientName: string;
+      clientPhone: string | null;
+      totalAppointments: number;
+      totalSpent: number;
+      totalProfit: number;
+      lastVisit: string | null;
+      firstVisit: string | null;
+      appointments: ReturnType<typeof formatAppointment>[];
+    }>();
+
+    for (const appt of appts) {
+      const phoneNorm = normalizePhone(appt.clientPhone);
+      const key = phoneNorm || `name:${appt.clientName.trim().toLowerCase()}`;
+      const existing = map.get(key) ?? {
+        clientKey: key,
+        clientName: appt.clientName,
+        clientPhone: appt.clientPhone ?? null,
+        totalAppointments: 0,
+        totalSpent: 0,
+        totalProfit: 0,
+        lastVisit: null,
+        firstVisit: null,
+        appointments: [],
+      };
+      existing.totalAppointments++;
+      existing.totalSpent += appt.servicePrice;
+      existing.totalProfit += appt.servicePrice - (appt.materialCost ?? 0);
+      if (!existing.lastVisit || appt.date > existing.lastVisit) existing.lastVisit = appt.date;
+      if (!existing.firstVisit || appt.date < existing.firstVisit) existing.firstVisit = appt.date;
+      existing.appointments.push(formatAppointment(appt));
+      map.set(key, existing);
+    }
+
+    const clients = Array.from(map.values()).sort((a, b) =>
+      (b.lastVisit ?? "").localeCompare(a.lastVisit ?? "")
+    );
+    res.json(clients);
+  } catch (err) {
+    req.log.error({ err }, "Client history error");
     res.status(500).json({ error: "InternalError", message: "Erro interno" });
   }
 });

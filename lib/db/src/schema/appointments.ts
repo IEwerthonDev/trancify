@@ -27,6 +27,10 @@ export const appointmentsTable = pgTable("appointments", {
   status: appointmentStatusEnum("status").notNull().default("pending"),
   token: text("token").notNull().$defaultFn(() => crypto.randomUUID()),
   notes: text("notes"),
+  reminder24hSent: timestamp("reminder_24h_sent"),
+  reminder2hSent: timestamp("reminder_2h_sent"),
+  reviewToken: text("review_token").notNull().$defaultFn(() => crypto.randomUUID()).unique(),
+  reviewRequestSent: timestamp("review_request_sent"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

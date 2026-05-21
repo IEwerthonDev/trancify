@@ -25,6 +25,9 @@ import PrimeirosPassosPage from "@/pages/dashboard/primeiros-passos";
 import CadastroPage from "@/pages/cadastro";
 import CompletarCadastroPage from "@/pages/completar-cadastro";
 import PublicBookingPage from "@/pages/public/booking";
+import ReviewPage from "@/pages/public/review";
+import ClientesPage from "@/pages/dashboard/clientes";
+import AvaliacoesPage from "@/pages/dashboard/avaliacoes";
 
 const queryClient = new QueryClient();
 
@@ -127,6 +130,8 @@ function Router() {
       <Route path="/dashboard/agenda" component={() => <ProtectedRoute component={AgendaPage} allowedRole="tenant" checkTrial />} />
       <Route path="/dashboard/configuracoes" component={() => <ProtectedRoute component={ConfiguracoesPage} allowedRole="tenant" checkTrial />} />
       <Route path="/dashboard/relatorios" component={() => <ProtectedRoute component={RelatoriosPage} allowedRole="tenant" checkTrial />} />
+      <Route path="/dashboard/clientes" component={() => <ProtectedRoute component={ClientesPage} allowedRole="tenant" checkTrial />} />
+      <Route path="/dashboard/avaliacoes" component={() => <ProtectedRoute component={AvaliacoesPage} allowedRole="tenant" checkTrial />} />
       <Route path="/dashboard/primeiros-passos" component={() => <ProtectedRoute component={PrimeirosPassosPage} allowedRole="tenant" checkTrial />} />
       {/* Assinatura page: accessible even if trial is expired so they can reactivate */}
       <Route path="/dashboard/assinatura" component={() => <ProtectedRoute component={AssinaturaPage} allowedRole="tenant" />} />
@@ -135,6 +140,9 @@ function Router() {
       <Route path="/admin" component={() => <ProtectedRoute component={AdminOverview} allowedRole="super_admin" />} />
       <Route path="/admin/tenants" component={() => <ProtectedRoute component={AdminTenants} allowedRole="super_admin" />} />
       <Route path="/admin/conta" component={() => <ProtectedRoute component={AdminContaPage} allowedRole="super_admin" />} />
+
+      {/* Public review form — MUST come before the :slug catch-all */}
+      <Route path="/avaliar/:token" component={ReviewPage} />
 
       {/* Public Booking Route - MUST be last as it's a catch-all for slugs */}
       <Route path="/:slug" component={PublicBookingPage} />

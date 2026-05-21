@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, appointmentsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { requireTenant, type AuthRequest } from "../lib/auth.js";
 
 const router = Router();
@@ -22,6 +22,8 @@ router.get("/tenant", requireTenant, async (req: AuthRequest, res) => {
     const totalRevenue = filtered.reduce((sum, a) => sum + a.servicePrice, 0);
     const totalCosts = filtered.reduce((sum, a) => sum + (a.materialCost ?? 0), 0);
     const totalProfit = totalRevenue - totalCosts;
+    const avgTicket = totalAppointments > 0 ? totalRevenue / totalAppointments : 0;
+    const avgProfit = totalAppointments > 0 ? totalProfit / totalAppointments : 0;
 
     const appointmentsByStatus = filtered.reduce(
       (acc, a) => {
@@ -31,28 +33,51 @@ router.get("/tenant", requireTenant, async (req: AuthRequest, res) => {
       {} as Record<string, number>
     );
 
-    const monthlyMap = new Map<string, { appointments: number; revenue: number; profit: number }>();
-
+    const monthlyMap = new Map<string, { appointments: number; revenue: number; costs: number; profit: number }>();
     for (const appt of filtered) {
       const month = appt.date.slice(0, 7);
-      const existing = monthlyMap.get(month) ?? { appointments: 0, revenue: 0, profit: 0 };
+      const existing = monthlyMap.get(month) ?? { appointments: 0, revenue: 0, costs: 0, profit: 0 };
       existing.appointments++;
       existing.revenue += appt.servicePrice;
+      existing.costs += appt.materialCost ?? 0;
       existing.profit += appt.servicePrice - (appt.materialCost ?? 0);
       monthlyMap.set(month, existing);
     }
-
     const monthlyData = Array.from(monthlyMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, data]) => ({ month, ...data }));
+
+    // Top services (by profit)
+    const serviceMap = new Map<string, { serviceId: string; serviceName: string; appointments: number; revenue: number; costs: number; profit: number }>();
+    for (const appt of filtered) {
+      const existing = serviceMap.get(appt.serviceId) ?? {
+        serviceId: appt.serviceId,
+        serviceName: appt.serviceName,
+        appointments: 0,
+        revenue: 0,
+        costs: 0,
+        profit: 0,
+      };
+      existing.appointments++;
+      existing.revenue += appt.servicePrice;
+      existing.costs += appt.materialCost ?? 0;
+      existing.profit += appt.servicePrice - (appt.materialCost ?? 0);
+      serviceMap.set(appt.serviceId, existing);
+    }
+    const topServices = Array.from(serviceMap.values())
+      .sort((a, b) => b.profit - a.profit)
+      .slice(0, 10);
 
     res.json({
       totalAppointments,
       totalRevenue,
       totalCosts,
       totalProfit,
+      avgTicket,
+      avgProfit,
       appointmentsByStatus,
       monthlyData,
+      topServices,
     });
   } catch (err) {
     req.log.error({ err }, "Get report error");

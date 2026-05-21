@@ -21,6 +21,8 @@ import {
   Sun,
   CreditCard,
   Rocket,
+  Star,
+  Contact,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +45,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Agendamentos", href: "/dashboard/agendamentos", icon: ListTodo },
     { name: "Serviços", href: "/dashboard/servicos", icon: Scissors },
     { name: "Disponibilidade", href: "/dashboard/disponibilidade", icon: Clock },
+    { name: "Clientes", href: "/dashboard/clientes", icon: Contact },
+    { name: "Avaliações", href: "/dashboard/avaliacoes", icon: Star },
     { name: "Relatórios", href: "/dashboard/relatorios", icon: BarChart3 },
     { name: "Assinatura", href: "/dashboard/assinatura", icon: CreditCard },
     { name: "Configurações", href: "/dashboard/configuracoes", icon: Settings },
