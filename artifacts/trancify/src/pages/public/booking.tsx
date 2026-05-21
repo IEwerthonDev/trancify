@@ -207,6 +207,7 @@ export default function PublicBookingPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [bookingType, setBookingType] = useState<"appointment" | "pre_appointment">("appointment");
   const [paymentChoice, setPaymentChoice] = useState<"deposit" | "full" | "later" | "">("");
+  const [preAppointmentBlocked, setPreAppointmentBlocked] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupDone, setLookupDone] = useState(false);
   const [lookupFound, setLookupFound] = useState(false);
@@ -372,10 +373,22 @@ export default function PublicBookingPage() {
     }
   };
 
-  const handleBook = async () => {
+  // Pré-Agendamento needs at least 2 full days lead time so the deposit can
+  // still be paid before the deadline. We check client-side first to show a
+  // friendly modal; server enforces the same rule for safety.
+  const PRE_APPOINTMENT_MIN_DAYS = 2;
+  const isPreAppointmentTooSoon = () => {
+    if (bookingType !== "pre_appointment" || !selectedDate) return false;
+    const todayMid = new Date(); todayMid.setHours(12, 0, 0, 0);
+    const target = new Date(`${selectedDate}T12:00:00`);
+    const diffDays = Math.round((target.getTime() - todayMid.getTime()) / 86_400_000);
+    return diffDays < PRE_APPOINTMENT_MIN_DAYS;
+  };
+
+  const bookWithChoice = async (choice: "deposit" | "full" | "later" | "skip") => {
     if (!validateClientData()) return;
-    if (!paymentChoice) {
-      toast({ title: "Escolha o pagamento", description: "Selecione SINAL, INTEIRA ou (no Pré-Agendamento) pagar depois.", variant: "destructive" });
+    if (bookingType === "pre_appointment" && isPreAppointmentTooSoon()) {
+      setPreAppointmentBlocked(true);
       return;
     }
     try {
@@ -396,46 +409,26 @@ export default function PublicBookingPage() {
           ...({
             clientCpf: clientData.cpf.replace(/\D/g, ""),
             bookingType,
-            paymentChoice,
+            paymentChoice: choice,
           } as any),
         } as any,
       });
       setIsSuccess(true);
     } catch (err: any) {
+      const code = err?.response?.data?.error;
       const msg = err?.response?.data?.message ?? err?.message ?? "Por favor, tente novamente.";
+      if (code === "PreAppointmentTooSoon") {
+        setPreAppointmentBlocked(true);
+        return;
+      }
       toast({ title: "Erro ao agendar", description: msg, variant: "destructive" });
     }
   };
 
-  const handleSkipPayment = async () => {
-    if (!validateClientData()) return;
-    try {
-      await bookMutation.mutateAsync({
-        data: {
-          tenantId: tenant.id,
-          serviceId: selectedService.id,
-          clientName: clientData.name,
-          clientPhone: clientData.phone,
-          clientAge: Number(clientData.age) || undefined,
-          hairDescription: clientData.hairDesc || undefined,
-          referencePhotos,
-          paymentMethod: clientData.payment as "pix" | "card" | "cash",
-          braidSize,
-          date: selectedDate,
-          time: selectedTime,
-          ...({
-            clientCpf: clientData.cpf.replace(/\D/g, ""),
-            bookingType,
-            paymentChoice: "skip",
-          } as any),
-        } as any,
-      });
-      setIsSuccess(true);
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Por favor, tente novamente.";
-      toast({ title: "Erro ao agendar (teste)", description: msg, variant: "destructive" });
-    }
-  };
+  // Main confirm button: if user hasn't picked a payment yet, fall back to
+  // "skip" so the booking still reaches the success screen (per product spec).
+  const handleBook = () => bookWithChoice(paymentChoice || "skip");
+  const handleSkipPayment = () => bookWithChoice("skip");
 
   const handleRestart = () => {
     setStep(0);
@@ -454,6 +447,7 @@ export default function PublicBookingPage() {
     setLookupDone(false);
     setLookupFound(false);
     setEditingProfile(false);
+    setPreAppointmentBlocked(false);
   };
 
   const getPrice = () => selectedService ? (braidSize === 'mid_back' ? selectedService.priceSmall : selectedService.priceLarge) : 0;
@@ -564,16 +558,24 @@ export default function PublicBookingPage() {
                         <h4 className="font-bold text-amber-900">Pré-Agendamento</h4>
                       </div>
                       <p className="text-xs text-amber-900/80 leading-relaxed">
-                        Reserve agora sem pagar. Você tem até <strong>3 dias antes da data</strong> para
+                        Reserve agora sem pagar. Você tem até <strong>2 dias antes da data</strong> para
                         pagar o SINAL ou o valor INTEIRO. Sem pagamento até lá, o horário é liberado.
                       </p>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 px-3 py-2 rounded-xl">
-                    <Search className="w-3.5 h-3.5 shrink-0" />
-                    Já fez um Pré-Agendamento?{" "}
-                    <Link href={`/pagar/${slug ?? ""}`} className="font-bold underline" style={{ color: primaryColor }}>
-                      Pagar agora com CPF
+                  <div className="mt-4 rounded-2xl bg-secondary/40 px-4 py-3">
+                    <p className="text-xs text-muted-foreground mb-2">Já fez um Pré-Agendamento?</p>
+                    <Link href={`/pagar/${slug ?? ""}`}>
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant="outline"
+                        className="w-full h-12 rounded-xl border-2 font-bold"
+                        style={{ borderColor: primaryColor, color: primaryColor }}
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Pagar SINAL ou valor INTEIRO
+                      </Button>
                     </Link>
                   </div>
                 </div>
@@ -607,13 +609,6 @@ export default function PublicBookingPage() {
                   </div>
                 </div>
 
-                {/* Optional notice */}
-                <div className="bg-secondary/40 rounded-2xl px-5 py-3.5 flex items-center gap-3">
-                  <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    Se não tiver uma foto de referência ideal no momento, <strong className="text-foreground">pode seguir sem</strong> — as fotos são opcionais.
-                  </p>
-                </div>
               </div>
 
               <div className="mt-10">
@@ -1091,9 +1086,9 @@ export default function PublicBookingPage() {
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <ClockIcon className="w-4 h-4 text-amber-700" />
-                      <h4 className="font-bold">Pré-Agendamento</h4>
+                      <h4 className={`font-bold ${bookingType === "pre_appointment" ? "text-amber-900" : "text-foreground"}`}>Pré-Agendamento</h4>
                     </div>
-                    <p className="text-xs text-muted-foreground">Reserve sem pagar. Pague até 3 dias antes da data, senão expira.</p>
+                    <p className={`text-xs ${bookingType === "pre_appointment" ? "text-amber-800" : "text-muted-foreground"}`}>Reserve sem pagar. Pague até 2 dias antes da data, senão expira.</p>
                   </button>
                 </div>
 
@@ -1127,15 +1122,15 @@ export default function PublicBookingPage() {
                         onClick={() => setPaymentChoice("later")}
                         className={`rounded-2xl border-2 p-4 text-left transition-all ${paymentChoice === "later" ? "border-amber-500 bg-amber-50 ring-2 ring-amber-300/40" : "border-border hover:border-amber-400/40"}`}
                       >
-                        <p className="font-bold text-foreground">Pagar depois</p>
-                        <p className="text-xs text-amber-800 mt-1">Reserve agora, pague até 3 dias antes pela área "Pagar com CPF".</p>
+                        <p className={`font-bold ${paymentChoice === "later" ? "text-amber-900" : "text-foreground"}`}>Pagar depois</p>
+                        <p className={`text-xs mt-1 ${paymentChoice === "later" ? "text-amber-800" : "text-muted-foreground"}`}>Reserve agora, pague até 2 dias antes pela área "Pagar com CPF".</p>
                       </button>
                     )}
                   </div>
                   {bookingType === "pre_appointment" && (
                     <div className="mt-3 flex items-start gap-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
                       <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                      <span>Sem pagamento até <strong>3 dias antes da data</strong>, seu horário é liberado automaticamente.</span>
+                      <span>Sem pagamento até <strong>2 dias antes da data</strong>, seu horário é liberado automaticamente.</span>
                     </div>
                   )}
                 </div>
@@ -1159,7 +1154,7 @@ export default function PublicBookingPage() {
               </div>
 
               <div className="mt-8 space-y-3">
-                <Button size="lg" className="w-full h-16 text-xl rounded-2xl shadow-xl shadow-primary/30" onClick={handleBook} disabled={bookMutation.isPending || !paymentChoice}>
+                <Button size="lg" className="w-full h-16 text-xl rounded-2xl shadow-xl shadow-primary/30" onClick={handleBook} disabled={bookMutation.isPending}>
                   {bookMutation.isPending
                     ? "Agendando..."
                     : paymentChoice === "later"
@@ -1168,7 +1163,7 @@ export default function PublicBookingPage() {
                         ? `Pagar INTEIRA ${formatCurrency(getPrice())} e Agendar`
                         : paymentChoice === "deposit"
                           ? `Pagar SINAL ${formatCurrency(depositValue)} e Agendar`
-                          : "Selecione o pagamento acima"}
+                          : "Concluir agendamento"}
                 </Button>
 
                 {/* TEST-ONLY skip button — remove before launch */}
@@ -1186,6 +1181,61 @@ export default function PublicBookingPage() {
 
         </AnimatePresence>
       </main>
+
+      {/* Pré-Agendamento too-soon modal — sends user back to date selection */}
+      {preAppointmentBlocked && (
+        <div
+          className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPreAppointmentBlocked(false)}
+        >
+          <div
+            className="bg-card text-card-foreground rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 border border-border"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-2">
+              Pré-Agendamento indisponível para esta data
+            </h2>
+            <p className="text-sm text-muted-foreground mb-2">
+              O Pré-Agendamento precisa de pelo menos <strong className="text-foreground">2 dias de antecedência</strong>,
+              pois o pagamento do SINAL ou INTEIRA deve ser feito até 2 dias antes da data escolhida.
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Você pode escolher outra data, ou fazer um <strong className="text-foreground">Agendamento</strong> pagando agora.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                size="lg"
+                className="flex-1 h-12 rounded-xl"
+                onClick={() => {
+                  setPreAppointmentBlocked(false);
+                  setSelectedTime("");
+                  setStep(3);
+                }}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar para escolher outra data
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="flex-1 h-12 rounded-xl"
+                onClick={() => {
+                  setBookingType("appointment");
+                  if (paymentChoice === "later") setPaymentChoice("");
+                  setPreAppointmentBlocked(false);
+                }}
+              >
+                Mudar para Agendamento
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fullscreen image lightbox */}
       {lightbox && (

@@ -14,7 +14,7 @@ const bookSchema = z.object({
   clientName: z.string().min(1),
   clientAge: z.number().int().positive().optional(),
   clientPhone: z.string().min(10, "Celular é obrigatório"),
-  clientCpf: z.string().optional(),
+  clientCpf: z.string().min(11, "CPF é obrigatório").max(14),
   hairDescription: z.string().optional(),
   referencePhotos: z.array(z.string()).max(3).optional(),
   paymentMethod: z.enum(["pix", "card", "cash"]),
@@ -70,10 +70,18 @@ function formatAppointment(appt: typeof appointmentsTable.$inferSelect) {
   };
 }
 
+const PRE_APPOINTMENT_MIN_DAYS = 2;
+
 function calcDepositDeadline(dateStr: string): string {
   const d = new Date(`${dateStr}T12:00:00`);
-  d.setDate(d.getDate() - 3);
+  d.setDate(d.getDate() - PRE_APPOINTMENT_MIN_DAYS);
   return d.toISOString().slice(0, 10);
+}
+
+function daysBetween(fromDateStr: string, toDateStr: string): number {
+  const from = new Date(`${fromDateStr}T12:00:00`);
+  const to = new Date(`${toDateStr}T12:00:00`);
+  return Math.round((to.getTime() - from.getTime()) / 86_400_000);
 }
 
 function normalizeCpf(cpf: string): string {
@@ -255,10 +263,17 @@ router.post("/book", async (req, res) => {
       return;
     }
 
-    // Gate the TEST-ONLY "skip" choice — never accept it in production, regardless of frontend.
-    if (data.paymentChoice === "skip" && process.env.NODE_ENV === "production" && process.env.ALLOW_SKIP_PAYMENT !== "true") {
-      res.status(400).json({ error: "ValidationError", message: "Pagamento é obrigatório." });
-      return;
+    // Pré-Agendamento needs a buffer so the deposit can still be paid before the deadline.
+    if (data.bookingType === "pre_appointment") {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const diff = daysBetween(todayStr, data.date);
+      if (diff < PRE_APPOINTMENT_MIN_DAYS) {
+        res.status(400).json({
+          error: "PreAppointmentTooSoon",
+          message: `Pré-Agendamento exige no mínimo ${PRE_APPOINTMENT_MIN_DAYS} dias de antecedência. Escolha outra data ou faça um Agendamento pagando agora.`,
+        });
+        return;
+      }
     }
 
     let paymentStatus: "unpaid" | "deposit_paid" | "fully_paid" = "unpaid";
