@@ -9,8 +9,9 @@ import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, CheckCircle, ChevronRight, ArrowLeft, ImagePlus, X, ChevronLeft,
-  MessageCircle, Camera, CreditCard, Info, Banknote
+  MessageCircle, Camera, CreditCard, Info, Banknote, Search, Clock as ClockIcon, AlertTriangle, Wallet
 } from "lucide-react";
+import { Link } from "wouter";
 import {
   format,
   startOfMonth,
@@ -115,9 +116,16 @@ export default function PublicBookingPage() {
     phone: "",
     age: "",
     hairDesc: "",
+    cpf: "",
     payment: "" as "" | "pix" | "card" | "cash"
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [bookingType, setBookingType] = useState<"appointment" | "pre_appointment">("appointment");
+  const [paymentChoice, setPaymentChoice] = useState<"deposit" | "full" | "later" | "">("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupDone, setLookupDone] = useState(false);
+  const [lookupFound, setLookupFound] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
 
   const { data: availableDatesData } = useGetPublicAvailabilityDates(
     tenant?.id || "",
@@ -225,13 +233,90 @@ export default function PublicBookingPage() {
 
     if (!clientData.hairDesc.trim()) newErrors.hairDesc = "Descreva a condição do seu cabelo";
 
+    const cpfDigits = clientData.cpf.replace(/\D/g, "");
+    if (!cpfDigits) newErrors.cpf = "CPF é obrigatório";
+    else if (cpfDigits.length !== 11) newErrors.cpf = "CPF deve ter 11 dígitos";
+
     if (!clientData.payment) newErrors.payment = "Selecione uma forma de pagamento";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleCpfLookup = async () => {
+    const cpfDigits = clientData.cpf.replace(/\D/g, "");
+    if (cpfDigits.length !== 11) {
+      toast({ title: "CPF inválido", description: "Informe os 11 dígitos do CPF.", variant: "destructive" });
+      return;
+    }
+    setLookupLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/clients/lookup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId: tenant.id, cpf: cpfDigits }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClientData((prev) => ({
+          ...prev,
+          name: data.name ?? prev.name,
+          phone: data.phone ?? prev.phone,
+          age: data.age ? String(data.age) : prev.age,
+          hairDesc: data.hairDescription ?? prev.hairDesc,
+        }));
+        setLookupFound(true);
+        setEditingProfile(false);
+        toast({ title: "Dados carregados", description: "Confirme ou edite seus dados antes de continuar." });
+      } else {
+        setLookupFound(false);
+        setEditingProfile(true);
+        toast({ title: "Cadastro novo", description: "Não encontramos você — preencha seus dados abaixo." });
+      }
+    } catch {
+      toast({ title: "Erro na busca", variant: "destructive" });
+    } finally {
+      setLookupLoading(false);
+      setLookupDone(true);
+    }
+  };
+
   const handleBook = async () => {
+    if (!validateClientData()) return;
+    if (!paymentChoice) {
+      toast({ title: "Escolha o pagamento", description: "Selecione SINAL, INTEIRA ou (no Pré-Agendamento) pagar depois.", variant: "destructive" });
+      return;
+    }
+    try {
+      await bookMutation.mutateAsync({
+        data: {
+          tenantId: tenant.id,
+          serviceId: selectedService.id,
+          clientName: clientData.name,
+          clientPhone: clientData.phone,
+          clientAge: Number(clientData.age) || undefined,
+          hairDescription: clientData.hairDesc || undefined,
+          referencePhotos,
+          paymentMethod: clientData.payment as "pix" | "card" | "cash",
+          braidSize,
+          date: selectedDate,
+          time: selectedTime,
+          // Extra fields (not in OpenAPI but accepted by server)
+          ...({
+            clientCpf: clientData.cpf.replace(/\D/g, ""),
+            bookingType,
+            paymentChoice,
+          } as any),
+        } as any,
+      });
+      setIsSuccess(true);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Por favor, tente novamente.";
+      toast({ title: "Erro ao agendar", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleSkipPayment = async () => {
     if (!validateClientData()) return;
     try {
       await bookMutation.mutateAsync({
@@ -246,12 +331,18 @@ export default function PublicBookingPage() {
           paymentMethod: clientData.payment as "pix" | "card" | "cash",
           braidSize,
           date: selectedDate,
-          time: selectedTime
-        }
+          time: selectedTime,
+          ...({
+            clientCpf: clientData.cpf.replace(/\D/g, ""),
+            bookingType,
+            paymentChoice: "skip",
+          } as any),
+        } as any,
       });
       setIsSuccess(true);
-    } catch {
-      toast({ title: "Erro ao agendar", description: "Por favor, tente novamente.", variant: "destructive" });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Por favor, tente novamente.";
+      toast({ title: "Erro ao agendar (teste)", description: msg, variant: "destructive" });
     }
   };
 
@@ -264,12 +355,18 @@ export default function PublicBookingPage() {
     setMonthOffset(0);
     setReferencePhotos([]);
     setPhotoPreviews([]);
-    setClientData({ name: "", phone: "", age: "", hairDesc: "", payment: "" });
+    setClientData({ name: "", phone: "", age: "", hairDesc: "", cpf: "", payment: "" });
     setErrors({});
     setIsSuccess(false);
+    setBookingType("appointment");
+    setPaymentChoice("");
+    setLookupDone(false);
+    setLookupFound(false);
+    setEditingProfile(false);
   };
 
   const getPrice = () => selectedService ? (braidSize === 'mid_back' ? selectedService.priceSmall : selectedService.priceLarge) : 0;
+  const depositValue = Math.round(getPrice() * 50) / 100;
 
   if (isSuccess) {
     const wppText = encodeURIComponent(`Olá ${tenant.name}! Acabei de agendar uma trança pelo sistema. Meu nome é ${clientData.name}.`);
@@ -346,22 +443,47 @@ export default function PublicBookingPage() {
 
               <div className="space-y-4">
 
-                {/* Payment card */}
-                <div className="bg-card border border-border/60 rounded-3xl p-6 flex gap-5 shadow-sm">
-                  <div className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: hexToRgba(primaryColor, 0.1) }}>
-                    <Banknote className="w-6 h-6" style={{ color: primaryColor }} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg text-foreground mb-1">Como funciona o pagamento?</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      Durante o agendamento, você vai selecionar a forma de pagamento preferida (Pix, Cartão ou Dinheiro).
-                      Isso serve apenas para <strong className="text-foreground">a trancista se organizar</strong> — o pagamento
-                      em si é combinado e efetuado <strong className="text-foreground">diretamente com ela</strong>, por WhatsApp ou no dia do atendimento.
-                    </p>
-                    <div className="flex items-center gap-2 mt-3 text-xs font-semibold text-[#25D366] bg-[#25D366]/10 px-3 py-1.5 rounded-xl w-fit">
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      Pagamento via WhatsApp ou presencialmente
+                {/* Agendamento vs Pré-Agendamento */}
+                <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-sm">
+                  <div className="flex gap-5 mb-4">
+                    <div className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: hexToRgba(primaryColor, 0.1) }}>
+                      <Banknote className="w-6 h-6" style={{ color: primaryColor }} />
                     </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-foreground mb-1">Escolha como reservar seu horário</h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        Você terá duas opções no final do agendamento.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wallet className="w-4 h-4 text-primary" />
+                        <h4 className="font-bold text-foreground">Agendamento</h4>
+                      </div>
+                      <p className="text-xs text-foreground/80 leading-relaxed">
+                        Você paga <strong>SINAL (50%) ou o valor INTEIRO</strong> no ato do agendamento.
+                        Só assim o horário fica garantido.
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border-2 border-amber-300/60 bg-amber-50 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ClockIcon className="w-4 h-4 text-amber-700" />
+                        <h4 className="font-bold text-amber-900">Pré-Agendamento</h4>
+                      </div>
+                      <p className="text-xs text-amber-900/80 leading-relaxed">
+                        Reserve agora sem pagar. Você tem até <strong>3 dias antes da data</strong> para
+                        pagar o SINAL ou o valor INTEIRO. Sem pagamento até lá, o horário é liberado.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-secondary/40 px-3 py-2 rounded-xl">
+                    <Search className="w-3.5 h-3.5 shrink-0" />
+                    Já fez um Pré-Agendamento?{" "}
+                    <Link href={`/pagar/${slug ?? ""}`} className="font-bold underline" style={{ color: primaryColor }}>
+                      Pagar agora com CPF
+                    </Link>
                   </div>
                 </div>
 
@@ -679,6 +801,37 @@ export default function PublicBookingPage() {
 
               <div className="bg-card p-6 sm:p-8 rounded-[2rem] border border-border shadow-xl space-y-6">
 
+                {/* CPF lookup */}
+                <div className="bg-secondary/30 border border-border rounded-2xl p-4">
+                  <label className="text-sm font-semibold mb-1 block">CPF <span className="text-destructive">*</span></label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Se já agendou aqui antes, vamos carregar seus dados automaticamente.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      inputMode="numeric"
+                      value={clientData.cpf}
+                      onChange={e => { setClientData({...clientData, cpf: e.target.value.replace(/\D/g,"").slice(0,11)}); setLookupDone(false); setLookupFound(false); if (errors.cpf) setErrors(p => ({...p, cpf: ""})); }}
+                      placeholder="Somente números (11 dígitos)"
+                      className={errors.cpf ? "border-destructive focus:ring-destructive/20" : ""}
+                    />
+                    <Button type="button" variant="outline" onClick={handleCpfLookup} disabled={lookupLoading || clientData.cpf.replace(/\D/g,"").length !== 11}>
+                      <Search className="w-4 h-4 mr-1" />
+                      {lookupLoading ? "Buscando..." : "Buscar"}
+                    </Button>
+                  </div>
+                  {errors.cpf && <p className="text-destructive text-xs mt-1 font-medium">{errors.cpf}</p>}
+                  {lookupDone && lookupFound && !editingProfile && (
+                    <div className="mt-3 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-sm text-emerald-900">
+                      <span>Dados carregados! Confira abaixo.</span>
+                      <button type="button" onClick={() => setEditingProfile(true)} className="font-bold underline">Editar</button>
+                    </div>
+                  )}
+                  {lookupDone && !lookupFound && (
+                    <p className="text-xs text-muted-foreground mt-2">Cadastro novo — preencha seus dados.</p>
+                  )}
+                </div>
+
                 {/* Name */}
                 <div>
                   <label className="text-sm font-semibold mb-1 block">Nome Completo <span className="text-destructive">*</span></label>
@@ -776,11 +929,8 @@ export default function PublicBookingPage() {
                 {/* Payment Method */}
                 <div>
                   <label className="text-sm font-semibold mb-2 block">
-                    Forma de Pagamento preferida <span className="text-destructive">*</span>
+                    Forma de Pagamento <span className="text-destructive">*</span>
                   </label>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Apenas para informar a trancista — o pagamento é efetuado diretamente com ela.
-                  </p>
                   <div className="flex gap-3">
                     {(['pix', 'card', 'cash'] as const).map(method => (
                       <button
@@ -793,6 +943,79 @@ export default function PublicBookingPage() {
                     ))}
                   </div>
                   {errors.payment && <p className="text-destructive text-xs mt-1 font-medium">{errors.payment}</p>}
+                </div>
+              </div>
+
+              {/* Booking type selector */}
+              <div className="mt-8 bg-card p-6 rounded-[2rem] border border-border shadow-xl">
+                <h3 className="font-bold text-lg mb-1">Tipo de reserva</h3>
+                <p className="text-xs text-muted-foreground mb-4">Escolha como deseja garantir seu horário.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setBookingType("appointment"); if (paymentChoice === "later") setPaymentChoice(""); }}
+                    className={`text-left rounded-2xl border-2 p-4 transition-all ${bookingType === "appointment" ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border hover:border-primary/40"}`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Wallet className="w-4 h-4 text-primary" />
+                      <h4 className="font-bold">Agendamento</h4>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Pago agora (SINAL 50% ou INTEIRA). Horário garantido na hora.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBookingType("pre_appointment")}
+                    className={`text-left rounded-2xl border-2 p-4 transition-all ${bookingType === "pre_appointment" ? "border-amber-500 bg-amber-50 ring-2 ring-amber-300/40" : "border-border hover:border-amber-400/40"}`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <ClockIcon className="w-4 h-4 text-amber-700" />
+                      <h4 className="font-bold">Pré-Agendamento</h4>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Reserve sem pagar. Pague até 3 dias antes da data, senão expira.</p>
+                  </button>
+                </div>
+
+                {/* Payment choice */}
+                <div className="mt-6">
+                  <h4 className="font-bold text-sm mb-2 uppercase tracking-wide text-muted-foreground">
+                    {bookingType === "appointment" ? "Pagamento (obrigatório agora)" : "Pagamento"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentChoice("deposit")}
+                      className={`rounded-2xl border-2 p-4 text-left transition-all ${paymentChoice === "deposit" ? "border-primary bg-primary/10 ring-2 ring-primary/20" : "border-border hover:border-primary/30"}`}
+                    >
+                      <p className="font-bold text-foreground">SINAL (50%)</p>
+                      <p className="text-lg font-bold" style={{ color: primaryColor }}>{formatCurrency(depositValue)}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">Pague metade agora, o restante no dia.</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentChoice("full")}
+                      className={`rounded-2xl border-2 p-4 text-left transition-all ${paymentChoice === "full" ? "border-primary bg-primary/10 ring-2 ring-primary/20" : "border-border hover:border-primary/30"}`}
+                    >
+                      <p className="font-bold text-foreground">INTEIRA</p>
+                      <p className="text-lg font-bold" style={{ color: primaryColor }}>{formatCurrency(getPrice())}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">Pague o valor total agora.</p>
+                    </button>
+                    {bookingType === "pre_appointment" && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentChoice("later")}
+                        className={`rounded-2xl border-2 p-4 text-left transition-all ${paymentChoice === "later" ? "border-amber-500 bg-amber-50 ring-2 ring-amber-300/40" : "border-border hover:border-amber-400/40"}`}
+                      >
+                        <p className="font-bold text-foreground">Pagar depois</p>
+                        <p className="text-xs text-amber-800 mt-1">Reserve agora, pague até 3 dias antes pela área "Pagar com CPF".</p>
+                      </button>
+                    )}
+                  </div>
+                  {bookingType === "pre_appointment" && (
+                    <div className="mt-3 flex items-start gap-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      <span>Sem pagamento até <strong>3 dias antes da data</strong>, seu horário é liberado automaticamente.</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -813,9 +1036,27 @@ export default function PublicBookingPage() {
                 </div>
               </div>
 
-              <div className="mt-12">
-                <Button size="lg" className="w-full h-16 text-xl rounded-2xl shadow-xl shadow-primary/30" onClick={handleBook} disabled={bookMutation.isPending}>
-                  {bookMutation.isPending ? "Agendando..." : "Confirmar Agendamento"}
+              <div className="mt-8 space-y-3">
+                <Button size="lg" className="w-full h-16 text-xl rounded-2xl shadow-xl shadow-primary/30" onClick={handleBook} disabled={bookMutation.isPending || !paymentChoice}>
+                  {bookMutation.isPending
+                    ? "Agendando..."
+                    : paymentChoice === "later"
+                      ? "Confirmar Pré-Agendamento"
+                      : paymentChoice === "full"
+                        ? `Pagar INTEIRA ${formatCurrency(getPrice())} e Agendar`
+                        : paymentChoice === "deposit"
+                          ? `Pagar SINAL ${formatCurrency(depositValue)} e Agendar`
+                          : "Selecione o pagamento acima"}
+                </Button>
+
+                {/* TEST-ONLY skip button — remove before launch */}
+                <Button
+                  variant="outline"
+                  className="w-full h-12 rounded-2xl border-2 border-dashed border-amber-400 text-amber-800 hover:bg-amber-50"
+                  onClick={handleSkipPayment}
+                  disabled={bookMutation.isPending}
+                >
+                  ⚠️ TESTE — pular pagamento e agendar mesmo assim
                 </Button>
               </div>
             </motion.div>

@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
 import { servicesTable } from "./services";
 
-export const appointmentStatusEnum = pgEnum("appointment_status", ["pending", "confirmed", "cancelled", "completed"]);
+export const appointmentStatusEnum = pgEnum("appointment_status", ["pending", "confirmed", "cancelled", "completed", "expired"]);
 export const paymentMethodEnum = pgEnum("payment_method", ["pix", "card", "cash"]);
 export const braidSizeEnum = pgEnum("braid_size", ["mid_back", "waist_butt"]);
 
@@ -31,6 +31,13 @@ export const appointmentsTable = pgTable("appointments", {
   reminder2hSent: timestamp("reminder_2h_sent"),
   reviewToken: text("review_token").notNull().$defaultFn(() => crypto.randomUUID()).unique(),
   reviewRequestSent: timestamp("review_request_sent"),
+  bookingType: text("booking_type").notNull().default("appointment"),
+  paymentStatus: text("payment_status").notNull().default("unpaid"),
+  clientCpf: text("client_cpf"),
+  depositAmount: real("deposit_amount"),
+  paidAmount: real("paid_amount").notNull().default(0),
+  depositDeadline: text("deposit_deadline"),
+  paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

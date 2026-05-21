@@ -1,5 +1,5 @@
 import { db, appointmentsTable, tenantsTable } from "@workspace/db";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, isNull, inArray, lte, sql } from "drizzle-orm";
 import { sendReminderNotification, sendReviewRequestNotification } from "./whatsapp.js";
 import { logger } from "./logger.js";
 
@@ -58,6 +58,29 @@ async function runRemindersTick(): Promise<void> {
       if (apptDate.getTime() < past1h.getTime() && !appt.reviewRequestSent) {
         await sendReviewRequestForAppointment(appt);
       }
+    }
+
+    // Auto-expire pre-appointments whose deposit deadline has passed without payment
+    const todayStr = now.toISOString().slice(0, 10);
+    try {
+      const expired = await db
+        .update(appointmentsTable)
+        .set({ status: "expired", updatedAt: new Date() })
+        .where(
+          and(
+            eq(appointmentsTable.bookingType, "pre_appointment"),
+            eq(appointmentsTable.paymentStatus, "unpaid"),
+            inArray(appointmentsTable.status, ["pending", "confirmed"]),
+            sql`${appointmentsTable.depositDeadline} IS NOT NULL`,
+            lte(appointmentsTable.depositDeadline, todayStr)
+          )
+        )
+        .returning({ id: appointmentsTable.id });
+      if (expired.length > 0) {
+        logger.info({ count: expired.length }, "Auto-expired unpaid pre-appointments");
+      }
+    } catch (err) {
+      logger.error({ err }, "Pre-appointment expiry sweep failed");
     }
   } catch (err) {
     logger.error({ err }, "Scheduler tick error");

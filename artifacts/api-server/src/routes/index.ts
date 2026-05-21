@@ -9,6 +9,7 @@ import reportsRouter from "./reports.js";
 import reviewsRouter from "./reviews.js";
 import adminRouter from "./admin.js";
 import storageRouter from "./storage.js";
+import clientsRouter from "./clients.js";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use("/reports", reportsRouter);
 router.use("/reviews", reviewsRouter);
 router.use("/admin", adminRouter);
 router.use("/storage", storageRouter);
+router.use("/clients", clientsRouter);
 
 export default router;

@@ -201,7 +201,7 @@ router.get("/public/:tenantId", async (req, res) => {
         and(
           eq(appointmentsTable.tenantId, tenantId!),
           eq(appointmentsTable.date, date),
-          ne(appointmentsTable.status, "cancelled")
+          inArray(appointmentsTable.status, ["pending", "confirmed"])
         )
       );
 

@@ -12,13 +12,27 @@ const STATUS_COLORS: Record<string, string> = {
   confirmed: "bg-blue-500",
   completed: "bg-emerald-500",
   cancelled: "bg-red-400",
+  expired: "bg-orange-500",
 };
+
+// Lighter tints used for full-cell backgrounds in the calendar
+const STATUS_CELL_BG: Record<string, string> = {
+  pending: "bg-yellow-200 text-yellow-900 hover:bg-yellow-300",
+  confirmed: "bg-blue-200 text-blue-900 hover:bg-blue-300",
+  completed: "bg-emerald-200 text-emerald-900 hover:bg-emerald-300",
+  cancelled: "bg-red-200 text-red-900 hover:bg-red-300",
+  expired: "bg-orange-200 text-orange-900 hover:bg-orange-300",
+};
+
+// Priority when a day has appointments in multiple statuses (most "active" wins)
+const STATUS_PRIORITY: string[] = ["confirmed", "pending", "completed", "expired", "cancelled"];
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendente",
   confirmed: "Confirmado",
   completed: "Concluído",
   cancelled: "Cancelado",
+  expired: "Expirado",
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -104,30 +118,32 @@ export default function AgendaPage() {
               const isSelected = selectedDate && isSameDay(day, selectedDate);
               const isCurrentDay = isToday(day);
 
+              // Pick the dominant status (by priority) so the whole cell takes its color
+              const dominantStatus = dayAppts.length === 0
+                ? null
+                : STATUS_PRIORITY.find((s) => dayAppts.some((a) => a.status === s)) ?? dayAppts[0]!.status;
+              const cellBg = dominantStatus ? STATUS_CELL_BG[dominantStatus] : null;
+
               return (
                 <button
                   key={day.toISOString()}
                   onClick={() => setSelectedDate(day)}
-                  className={`relative aspect-square flex flex-col items-center justify-start p-1.5 rounded-xl transition-all duration-150 text-sm font-medium ${
+                  className={`relative aspect-square flex flex-col items-center justify-center p-1.5 rounded-xl transition-all duration-150 text-sm font-medium ${
                     isSelected
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 ring-2 ring-primary"
+                      : cellBg
+                      ? `${cellBg} shadow-sm`
                       : isCurrentDay
                       ? "bg-primary/10 text-primary ring-2 ring-primary/30"
                       : "hover:bg-secondary text-foreground"
                   }`}
+                  title={dominantStatus ? `${dayAppts.length} ${STATUS_LABELS[dominantStatus]?.toLowerCase() ?? ""}` : undefined}
                 >
-                  <span className="font-bold">{format(day, "d")}</span>
+                  <span className="font-bold text-base">{format(day, "d")}</span>
                   {dayAppts.length > 0 && (
-                    <div className="flex gap-0.5 mt-auto mb-0.5">
-                      {dayAppts.slice(0, 3).map((a, i) => (
-                        <span
-                          key={i}
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            isSelected ? "bg-primary-foreground" : STATUS_COLORS[a.status] ?? "bg-primary"
-                          }`}
-                        />
-                      ))}
-                    </div>
+                    <span className="text-[10px] font-semibold opacity-75">
+                      {dayAppts.length} agend.
+                    </span>
                   )}
                 </button>
               );
@@ -135,10 +151,10 @@ export default function AgendaPage() {
           </div>
 
           {/* Legend */}
-          <div className="flex flex-wrap gap-4 mt-6 pt-6 border-t border-border/50">
-            {Object.entries(STATUS_COLORS).map(([status, color]) => (
+          <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-border/50">
+            {Object.entries(STATUS_CELL_BG).map(([status, bg]) => (
               <div key={status} className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
+                <span className={`w-4 h-4 rounded-md ${bg.split(" ")[0]}`} />
                 {STATUS_LABELS[status]}
               </div>
             ))}

@@ -25,6 +25,7 @@ import PrimeirosPassosPage from "@/pages/dashboard/primeiros-passos";
 import CadastroPage from "@/pages/cadastro";
 import CompletarCadastroPage from "@/pages/completar-cadastro";
 import PublicBookingPage from "@/pages/public/booking";
+import PublicPagarPage from "@/pages/public/pagar";
 import ReviewPage from "@/pages/public/review";
 import ClientesPage from "@/pages/dashboard/clientes";
 import AvaliacoesPage from "@/pages/dashboard/avaliacoes";
@@ -143,6 +144,9 @@ function Router() {
 
       {/* Public review form — MUST come before the :slug catch-all */}
       <Route path="/avaliar/:token" component={ReviewPage} />
+
+      {/* Public CPF payment page — MUST come before the :slug catch-all */}
+      <Route path="/pagar/:slug" component={PublicPagarPage} />
 
       {/* Public Booking Route - MUST be last as it's a catch-all for slugs */}
       <Route path="/:slug" component={PublicBookingPage} />

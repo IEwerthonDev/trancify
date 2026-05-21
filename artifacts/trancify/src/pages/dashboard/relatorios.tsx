@@ -30,6 +30,7 @@ export default function RelatoriosPage() {
     confirmed: "Confirmados",
     completed: "Concluídos",
     cancelled: "Cancelados",
+    expired: "Expirados (sinal não pago)",
   };
 
   const chartData = (report?.monthlyData ?? []).map((m: any) => ({
@@ -150,6 +151,7 @@ export default function RelatoriosPage() {
                   confirmed: "bg-blue-500",
                   completed: "bg-emerald-500",
                   cancelled: "bg-red-400",
+                  expired: "bg-orange-500",
                 };
                 return (
                   <div key={status}>

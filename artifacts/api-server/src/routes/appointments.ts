@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, appointmentsTable, servicesTable, availabilityTable, tenantsTable } from "@workspace/db";
-import { eq, and, gte, lte, desc, ne } from "drizzle-orm";
+import { db, appointmentsTable, servicesTable, availabilityTable, tenantsTable, clientsTable } from "@workspace/db";
+import { eq, and, gte, lte, desc, ne, sql } from "drizzle-orm";
 import { requireTenant, type AuthRequest } from "../lib/auth.js";
 import { computeAvailableSlots } from "../lib/availability.js";
 import { sendBookingNotification } from "../lib/whatsapp.js";
@@ -14,6 +14,7 @@ const bookSchema = z.object({
   clientName: z.string().min(1),
   clientAge: z.number().int().positive().optional(),
   clientPhone: z.string().min(10, "Celular é obrigatório"),
+  clientCpf: z.string().optional(),
   hairDescription: z.string().optional(),
   referencePhotos: z.array(z.string()).max(3).optional(),
   paymentMethod: z.enum(["pix", "card", "cash"]),
@@ -21,6 +22,9 @@ const bookSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
   notes: z.string().optional(),
+  bookingType: z.enum(["appointment", "pre_appointment"]).default("appointment"),
+  // 'deposit' = pay 50% now (sinal), 'full' = pay 100% now, 'later' = pre-appointment defers payment, 'skip' = TEST ONLY
+  paymentChoice: z.enum(["deposit", "full", "later", "skip"]).default("deposit"),
 });
 
 const updateAppointmentSchema = z.object({
@@ -43,6 +47,7 @@ function formatAppointment(appt: typeof appointmentsTable.$inferSelect) {
     clientName: appt.clientName,
     clientAge: appt.clientAge ?? null,
     clientPhone: appt.clientPhone ?? null,
+    clientCpf: appt.clientCpf ?? null,
     hairDescription: appt.hairDescription ?? null,
     referencePhotos: (appt.referencePhotos as string[]) ?? [],
     paymentMethod: appt.paymentMethod,
@@ -53,11 +58,26 @@ function formatAppointment(appt: typeof appointmentsTable.$inferSelect) {
     date: appt.date,
     time: appt.time,
     status: appt.status,
+    bookingType: appt.bookingType,
+    paymentStatus: appt.paymentStatus,
+    paidAmount: appt.paidAmount,
+    depositAmount: appt.depositAmount ?? null,
+    depositDeadline: appt.depositDeadline ?? null,
     token: appt.token,
     notes: appt.notes ?? null,
     reviewToken: appt.reviewToken,
     createdAt: appt.createdAt.toISOString(),
   };
+}
+
+function calcDepositDeadline(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00`);
+  d.setDate(d.getDate() - 3);
+  return d.toISOString().slice(0, 10);
+}
+
+function normalizeCpf(cpf: string): string {
+  return cpf.replace(/\D/g, "");
 }
 
 function normalizePhone(p?: string | null): string {
@@ -202,7 +222,8 @@ router.post("/book", async (req, res) => {
           and(
             eq(appointmentsTable.tenantId, data.tenantId),
             eq(appointmentsTable.date, data.date),
-            ne(appointmentsTable.status, "cancelled")
+            // Only 'pending' and 'confirmed' should block a slot — 'cancelled', 'completed' and 'expired' all free the time
+            inArray(appointmentsTable.status, ["pending", "confirmed"])
           )
         );
 
@@ -225,6 +246,41 @@ router.post("/book", async (req, res) => {
     }
 
     const servicePrice = data.braidSize === "mid_back" ? service.priceSmall : service.priceLarge;
+    const depositAmount = Math.round(servicePrice * 50) / 100;
+    const cpfNormalized = data.clientCpf ? normalizeCpf(data.clientCpf) : null;
+
+    // Enforce payment rules
+    if (data.bookingType === "appointment" && data.paymentChoice === "later") {
+      res.status(400).json({ error: "ValidationError", message: "Agendamento exige pagamento imediato (SINAL ou INTEIRA). Use Pré-Agendamento para pagar depois." });
+      return;
+    }
+
+    // Gate the TEST-ONLY "skip" choice — never accept it in production, regardless of frontend.
+    if (data.paymentChoice === "skip" && process.env.NODE_ENV === "production" && process.env.ALLOW_SKIP_PAYMENT !== "true") {
+      res.status(400).json({ error: "ValidationError", message: "Pagamento é obrigatório." });
+      return;
+    }
+
+    let paymentStatus: "unpaid" | "deposit_paid" | "fully_paid" = "unpaid";
+    let paidAmount = 0;
+    let paidAt: Date | null = null;
+    if (data.paymentChoice === "deposit") {
+      paymentStatus = "deposit_paid";
+      paidAmount = depositAmount;
+      paidAt = new Date();
+    } else if (data.paymentChoice === "full") {
+      paymentStatus = "fully_paid";
+      paidAmount = servicePrice;
+      paidAt = new Date();
+    } else if (data.paymentChoice === "skip") {
+      // TEST ONLY — treat as deposit paid so booking is confirmed
+      paymentStatus = "deposit_paid";
+      paidAmount = depositAmount;
+      paidAt = new Date();
+    }
+
+    const depositDeadline = data.bookingType === "pre_appointment" ? calcDepositDeadline(data.date) : null;
+    const initialStatus = paymentStatus === "unpaid" ? "pending" : "confirmed";
 
     const [appointment] = await db
       .insert(appointmentsTable)
@@ -235,6 +291,7 @@ router.post("/book", async (req, res) => {
         clientName: data.clientName,
         clientAge: data.clientAge,
         clientPhone: data.clientPhone,
+        clientCpf: cpfNormalized ?? undefined,
         hairDescription: data.hairDescription,
         referencePhotos: data.referencePhotos ?? [],
         paymentMethod: data.paymentMethod,
@@ -243,9 +300,43 @@ router.post("/book", async (req, res) => {
         date: data.date,
         time: data.time,
         notes: data.notes,
-        status: "pending",
+        status: initialStatus,
+        bookingType: data.bookingType,
+        paymentStatus,
+        paidAmount,
+        depositAmount,
+        depositDeadline: depositDeadline ?? undefined,
+        paidAt: paidAt ?? undefined,
       })
       .returning();
+
+    // Upsert client profile when CPF was provided
+    if (cpfNormalized && cpfNormalized.length === 11) {
+      try {
+        await db
+          .insert(clientsTable)
+          .values({
+            tenantId: data.tenantId,
+            cpf: cpfNormalized,
+            name: data.clientName,
+            phone: data.clientPhone,
+            age: data.clientAge ?? null,
+            hairDescription: data.hairDescription ?? null,
+          })
+          .onConflictDoUpdate({
+            target: [clientsTable.tenantId, clientsTable.cpf],
+            set: {
+              name: data.clientName,
+              phone: data.clientPhone,
+              age: data.clientAge ?? null,
+              hairDescription: data.hairDescription ?? null,
+              updatedAt: new Date(),
+            },
+          });
+      } catch (err) {
+        req.log.warn({ err }, "Client upsert failed — booking still saved");
+      }
+    }
 
     const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, data.tenantId)).limit(1);
 
