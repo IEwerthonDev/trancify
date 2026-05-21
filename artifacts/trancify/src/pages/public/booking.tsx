@@ -474,7 +474,8 @@ export default function PublicBookingPage() {
           )}
           <button
             onClick={handleRestart}
-            className="flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-lg border-2 border-border bg-card hover:bg-secondary transition-all"
+            className="flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-lg text-primary-foreground transition-all shadow-lg hover:opacity-90"
+            style={{ background: primaryColor, boxShadow: `0 10px 30px -10px ${hexToRgba(primaryColor, 0.5)}` }}
           >
             <ArrowLeft className="w-5 h-5" />
             Fazer novo agendamento
