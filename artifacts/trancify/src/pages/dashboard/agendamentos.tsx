@@ -43,7 +43,7 @@ export default function AgendamentosPage() {
           {[1,2,3,4].map(i => <div key={i} className="h-24 bg-card rounded-2xl border border-border/50 animate-pulse" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="p-12 text-center text-muted-foreground bg-card rounded-3xl border border-border/50">
+        <div className="p-8 sm:p-12 text-center text-muted-foreground bg-card rounded-3xl border border-border/50">
           Nenhum agendamento encontrado para este filtro.
         </div>
       ) : (

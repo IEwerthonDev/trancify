@@ -133,8 +133,8 @@ export default function DisponibilidadePage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-10">
-        <h1 className="text-4xl font-display font-bold text-foreground">Disponibilidade</h1>
+      <div className="mb-6 sm:mb-10">
+        <h1 className="text-2xl sm:text-4xl font-display font-bold text-foreground">Disponibilidade</h1>
         <p className="text-muted-foreground mt-2 text-lg">Selecione os dias que você atende nos próximos meses.</p>
       </div>
 
@@ -144,41 +144,41 @@ export default function DisponibilidadePage() {
           {/* Calendar Card */}
           <div className="bg-card rounded-[2rem] border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
             {/* Calendar Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-border/50">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-2 px-4 sm:px-8 py-4 sm:py-6 border-b border-border/50">
+              <div className="flex items-center gap-1 sm:gap-3 min-w-0">
                 <button
                   onClick={() => setMonthOffset(0)}
                   disabled={monthOffset === 0}
-                  className="p-2 rounded-xl hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="p-2 rounded-xl hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                   aria-label="Mês anterior"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <h2 className="text-2xl font-display font-bold w-56 text-center">{capitalizedMonth}</h2>
+                <h2 className="text-base sm:text-2xl font-display font-bold w-32 sm:w-56 text-center truncate">{capitalizedMonth}</h2>
                 <button
                   onClick={() => setMonthOffset(Math.min(2, monthOffset + 1))}
                   disabled={monthOffset === 2}
-                  className="p-2 rounded-xl hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="p-2 rounded-xl hover:bg-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                   aria-label="Próximo mês"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/60 px-4 py-2 rounded-xl">
-                <div className="w-3 h-3 rounded-sm" style={{ background: "#7D2535" }} />
-                <span>{selectedDates.length} dia{selectedDates.length !== 1 ? "s" : ""} selecionado{selectedDates.length !== 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-secondary/60 px-2 sm:px-4 py-1.5 sm:py-2 rounded-xl shrink-0">
+                <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: "#7D2535" }} />
+                <span className="whitespace-nowrap">{selectedDates.length} <span className="hidden sm:inline">dia{selectedDates.length !== 1 ? "s" : ""} selecionado{selectedDates.length !== 1 ? "s" : ""}</span><span className="sm:hidden">sel.</span></span>
               </div>
             </div>
 
             {/* Week days header */}
-            <div className="grid grid-cols-7 px-4 pt-4">
+            <div className="grid grid-cols-7 px-2 sm:px-4 pt-3 sm:pt-4">
               {WEEK_DAYS.map(d => (
-                <div key={d} className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider py-2">{d}</div>
+                <div key={d} className="text-center text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider py-2">{d}</div>
               ))}
             </div>
 
             {/* Calendar grid */}
-            <div className="grid grid-cols-7 gap-1 p-4">
+            <div className="grid grid-cols-7 gap-0.5 sm:gap-1 p-2 sm:p-4">
               {Array.from({ length: firstDayOfWeek }).map((_, i) => (
                 <div key={`empty-${i}`} />
               ))}
@@ -216,7 +216,7 @@ export default function DisponibilidadePage() {
               })}
             </div>
 
-            <div className="px-8 pb-6 flex items-center gap-4 text-sm text-muted-foreground border-t border-border/40 pt-4">
+            <div className="px-4 sm:px-8 pb-4 sm:pb-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-muted-foreground border-t border-border/40 pt-4">
               <span className="flex items-center gap-2">
                 <span className="w-4 h-4 rounded-sm inline-block" style={{ background: "#7D2535" }} />
                 Dias selecionados
@@ -233,7 +233,7 @@ export default function DisponibilidadePage() {
           </div>
 
           {/* Time Settings */}
-          <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+          <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-accent/20 rounded-xl text-accent-foreground">
                 <Clock className="w-6 h-6" />
@@ -309,7 +309,7 @@ export default function DisponibilidadePage() {
 
         {/* Info Box */}
         <div className="space-y-6">
-          <div className="bg-secondary/50 rounded-[2rem] p-8 border border-border">
+          <div className="bg-secondary/50 rounded-[2rem] p-5 sm:p-8 border border-border">
             <div className="flex items-center gap-2 mb-4">
               <Info className="w-5 h-5 text-primary" />
               <h3 className="text-xl font-display font-bold">Como funciona?</h3>

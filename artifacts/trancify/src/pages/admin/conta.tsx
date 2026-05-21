@@ -93,8 +93,8 @@ export default function AdminContaPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-10">
-        <h1 className="text-4xl font-display font-bold text-foreground">Minha Conta</h1>
+      <div className="mb-6 sm:mb-10">
+        <h1 className="text-2xl sm:text-4xl font-display font-bold text-foreground">Minha Conta</h1>
         <p className="text-muted-foreground mt-2 text-lg">Gerencie seu acesso e credenciais de administrador.</p>
       </div>
 
@@ -112,7 +112,7 @@ export default function AdminContaPage() {
         </div>
 
         {/* Change Email Card */}
-        <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+        <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-blue-100 rounded-xl text-blue-600">
               <Mail className="w-6 h-6" />
@@ -160,7 +160,7 @@ export default function AdminContaPage() {
         </div>
 
         {/* Change Password Card */}
-        <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+        <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-amber-100 rounded-xl text-amber-600">
               <KeyRound className="w-6 h-6" />

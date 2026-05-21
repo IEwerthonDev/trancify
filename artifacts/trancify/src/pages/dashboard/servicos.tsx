@@ -27,9 +27,9 @@ export default function ServicosPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-10 gap-4">
         <div>
-          <h1 className="text-4xl font-display font-bold text-foreground">Meus Serviços</h1>
+          <h1 className="text-2xl sm:text-4xl font-display font-bold text-foreground">Meus Serviços</h1>
           <p className="text-muted-foreground mt-2 text-lg">Gerencie os tipos de tranças e preços.</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

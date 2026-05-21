@@ -139,7 +139,7 @@ export default function PublicPagarPage() {
         </div>
 
         {searched && results.length === 0 && (
-          <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-8 text-center">
+          <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6 sm:p-8 text-center">
             <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
             <h3 className="font-bold text-lg mb-1">Nenhum agendamento pendente</h3>
             <p className="text-stone-600 text-sm">

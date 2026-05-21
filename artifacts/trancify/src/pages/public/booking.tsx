@@ -400,7 +400,7 @@ export default function PublicBookingPage() {
         <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-8 mx-auto shadow-2xl shadow-emerald-500/20">
           <CheckCircle className="w-12 h-12" />
         </div>
-        <h1 className="text-4xl font-display font-bold text-foreground mb-4">Agendamento Solicitado!</h1>
+        <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">Agendamento Solicitado!</h1>
         <p className="text-lg text-muted-foreground max-w-md mb-8">
           Seu horário para <strong>{format(new Date(selectedDate + "T12:00:00"), "dd/MM/yyyy")} às {selectedTime}</strong> foi reservado.
           O salão precisa confirmar para validar o agendamento.
@@ -460,7 +460,7 @@ export default function PublicBookingPage() {
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
                   <Sparkles className="w-8 h-8 text-primary" />
                 </div>
-                <h2 className="text-3xl font-display font-bold text-foreground mb-2">Antes de começar</h2>
+                <h2 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-2">Antes de começar</h2>
                 <p className="text-muted-foreground text-lg max-w-md mx-auto">
                   Leia com atenção para garantir um agendamento tranquilo.
                 </p>
@@ -601,7 +601,7 @@ export default function PublicBookingPage() {
           {/* STEP 1 — Choose Service */}
           {step === 1 && (
             <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="text-3xl font-display font-bold mb-6">1. Qual serviço você deseja?</h2>
+              <h2 className="text-2xl sm:text-3xl font-display font-bold mb-6">1. Qual serviço você deseja?</h2>
               <div className="space-y-4">
                 {services?.filter(s => s.active).map((service: any) => {
                   const photos: string[] = Array.isArray(service.referencePhotos) ? service.referencePhotos : [];
@@ -659,7 +659,7 @@ export default function PublicBookingPage() {
           {/* STEP 2 — Choose Size */}
           {step === 2 && (
             <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="text-3xl font-display font-bold mb-2">2. Qual o tamanho?</h2>
+              <h2 className="text-2xl sm:text-3xl font-display font-bold mb-2">2. Qual o tamanho?</h2>
               <p className="text-muted-foreground mb-8 text-lg">O tamanho influencia no valor e tempo do serviço.</p>
 
               {selectedService && Array.isArray(selectedService.referencePhotos) && selectedService.referencePhotos.length > 0 && (
@@ -709,11 +709,11 @@ export default function PublicBookingPage() {
           {/* STEP 3 — Choose Date & Time */}
           {step === 3 && (
             <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="text-3xl font-display font-bold mb-6">3. Escolha Data e Hora</h2>
+              <h2 className="text-2xl sm:text-3xl font-display font-bold mb-6">3. Escolha Data e Hora</h2>
 
               {/* Calendar */}
               <div className="bg-card rounded-3xl border border-border shadow-md overflow-hidden mb-8">
-                <div className="flex items-center justify-between px-6 py-5 border-b border-border/50">
+                <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-5 border-b border-border/50">
                   <button
                     onClick={() => { setMonthOffset(0); setSelectedDate(""); setSelectedTime(""); }}
                     disabled={monthOffset === 0}
@@ -721,7 +721,7 @@ export default function PublicBookingPage() {
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <h3 className="text-lg font-bold">{capitalizedMonth}</h3>
+                  <h3 className="text-base sm:text-lg font-bold text-center truncate min-w-0 flex-1">{capitalizedMonth}</h3>
                   <button
                     onClick={() => { setMonthOffset(Math.min(2, monthOffset + 1)); setSelectedDate(""); setSelectedTime(""); }}
                     disabled={monthOffset === 2}
@@ -852,7 +852,7 @@ export default function PublicBookingPage() {
           {/* STEP 4 — Client Data */}
           {step === 4 && (
             <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="text-3xl font-display font-bold mb-2">4. Seus Dados</h2>
+              <h2 className="text-2xl sm:text-3xl font-display font-bold mb-2">4. Seus Dados</h2>
               <p className="text-muted-foreground mb-8 text-lg">Último passo para garantir seu horário.</p>
 
               <div className="bg-card p-6 sm:p-8 rounded-[2rem] border border-border shadow-xl space-y-6">

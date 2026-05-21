@@ -164,7 +164,7 @@ export default function AssinaturaPage() {
   return (
     <DashboardLayout>
       <div className="mb-8">
-        <h1 className="text-4xl font-display font-bold text-foreground">Minha Assinatura</h1>
+        <h1 className="text-2xl sm:text-4xl font-display font-bold text-foreground">Minha Assinatura</h1>
         <p className="text-muted-foreground mt-2 text-lg">
           Gerencie sua assinatura do Trancify.
         </p>
@@ -178,7 +178,7 @@ export default function AssinaturaPage() {
 
           {/* Plan selection + activate CTA — shown when not active/paused */}
           {(status === "trial" || status === "expired" || (status === "cancelled" && !cancelledWithAccess)) && (
-            <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+            <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
               <h2 className="text-2xl font-display font-bold mb-2">Escolha seu plano</h2>
               <p className="text-muted-foreground mb-6 text-sm">
                 Acesso completo a todos os recursos. Cancele quando quiser.
@@ -213,7 +213,7 @@ export default function AssinaturaPage() {
 
           {/* Cancelled but still has access — show Ativar Assinatura */}
           {cancelledWithAccess && (
-            <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+            <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
               <h2 className="text-2xl font-display font-bold mb-2">Ativar Assinatura</h2>
               <p className="text-muted-foreground mb-6 text-sm">
                 Você ainda tem acesso até{" "}
@@ -242,7 +242,7 @@ export default function AssinaturaPage() {
 
           {/* Paused — show reactivate option */}
           {status === "paused" && (
-            <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+            <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
               <h2 className="text-2xl font-display font-bold mb-2">Ativar Assinatura</h2>
               <p className="text-muted-foreground mb-6 text-sm">
                 Sua assinatura está pausada. Reative para recuperar o acesso completo.
@@ -269,7 +269,7 @@ export default function AssinaturaPage() {
 
           {/* Active subscription — Pausar + Cancelar */}
           {status === "active" && (
-            <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+            <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
               <h2 className="text-2xl font-display font-bold mb-2">Gerenciar assinatura</h2>
               <p className="text-muted-foreground mb-6 text-sm">
                 Você pode pausar ou cancelar a qualquer momento. Continuará tendo acesso até o fim do período pago

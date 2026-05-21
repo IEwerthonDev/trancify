@@ -69,7 +69,7 @@ export default function ReviewPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF7F5] flex flex-col items-center px-4 py-10">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-6 sm:p-8">
         <div className="text-center mb-6">
           <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-3" style={{ background: `${primary}20`, color: primary }}>
             <Sparkles className="w-7 h-7" />
@@ -80,7 +80,7 @@ export default function ReviewPage() {
           </p>
         </div>
 
-        <div className="flex justify-center gap-2 my-8">
+        <div className="flex justify-center gap-1 sm:gap-2 my-8">
           {[1, 2, 3, 4, 5].map((i) => (
             <button
               key={i}
@@ -88,11 +88,11 @@ export default function ReviewPage() {
               onMouseEnter={() => setHover(i)}
               onMouseLeave={() => setHover(0)}
               onClick={() => setRating(i)}
-              className="transition-transform hover:scale-110"
+              className="transition-transform hover:scale-110 p-0.5"
               aria-label={`${i} estrelas`}
             >
               <Star
-                className={`w-12 h-12 ${i <= (hover || rating) ? "fill-amber-400 text-amber-400" : "text-stone-300"}`}
+                className={`w-9 h-9 sm:w-12 sm:h-12 ${i <= (hover || rating) ? "fill-amber-400 text-amber-400" : "text-stone-300"}`}
               />
             </button>
           ))}

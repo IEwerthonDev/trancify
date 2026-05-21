@@ -32,7 +32,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Form Side */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background relative overflow-hidden">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-background relative overflow-hidden">
         {/* Decorative blobs */}
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
@@ -61,15 +61,15 @@ export default function LoginPage() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="w-full max-w-md relative z-10"
         >
-          <div className="mb-10 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20 mx-auto mb-6">
-              <Sparkles className="w-8 h-8 text-white" />
+          <div className="mb-8 sm:mb-10 text-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20 mx-auto mb-5 sm:mb-6">
+              <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-display font-bold text-foreground mb-2 tracking-tight">Bem-vinda ao Trancify</h1>
-            <p className="text-muted-foreground text-lg">A plataforma definitiva para trancistas.</p>
+            <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-2 tracking-tight">Bem-vinda ao Trancify</h1>
+            <p className="text-muted-foreground text-base sm:text-lg">A plataforma definitiva para trancistas.</p>
           </div>
 
-          <div className="bg-card p-8 rounded-3xl shadow-xl shadow-black/5 border border-border/50">
+          <div className="bg-card p-6 sm:p-8 rounded-3xl shadow-xl shadow-black/5 border border-border/50">
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground ml-1">Email</label>
@@ -124,7 +124,7 @@ export default function LoginPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <h2 className="text-4xl font-display font-bold text-white mb-4 leading-tight">
+            <h2 className="text-3xl xl:text-4xl font-display font-bold text-white mb-4 leading-tight">
               Organize sua agenda.<br/>
               Valorize seu talento.
             </h2>

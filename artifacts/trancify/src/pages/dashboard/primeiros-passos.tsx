@@ -199,7 +199,7 @@ export default function PrimeirosPassosPage() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold text-foreground mb-1">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-1">
             Primeiros passos
           </h1>
           <p className="text-muted-foreground">

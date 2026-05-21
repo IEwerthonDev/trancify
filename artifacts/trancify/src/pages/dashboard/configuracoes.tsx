@@ -185,8 +185,8 @@ export default function ConfiguracoesPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-10">
-        <h1 className="text-4xl font-display font-bold text-foreground">Configurações do Salão</h1>
+      <div className="mb-6 sm:mb-10">
+        <h1 className="text-2xl sm:text-4xl font-display font-bold text-foreground">Configurações do Salão</h1>
         <p className="text-muted-foreground mt-2 text-lg">Personalize seu perfil e a aparência da sua página.</p>
       </div>
 
@@ -194,7 +194,7 @@ export default function ConfiguracoesPage() {
         <div className="xl:col-span-2 space-y-8">
 
           {/* Profile Card */}
-          <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+          <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
             <div className="flex items-center gap-3 mb-8">
               <div className="p-3 bg-primary/10 rounded-xl text-primary">
                 <Store className="w-6 h-6" />
@@ -302,7 +302,7 @@ export default function ConfiguracoesPage() {
           </div>
 
           {/* Colors Card */}
-          <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+          <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-3 bg-violet-100 rounded-xl text-violet-600">
                 <Palette className="w-6 h-6" />
@@ -369,7 +369,7 @@ export default function ConfiguracoesPage() {
           </div>
 
           {/* Change Email Card */}
-          <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+          <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
             <div className="flex items-center gap-3 mb-8">
               <div className="p-3 bg-blue-100 rounded-xl text-blue-600">
                 <Mail className="w-6 h-6" />
@@ -417,7 +417,7 @@ export default function ConfiguracoesPage() {
           </div>
 
           {/* Change Password Card */}
-          <div className="bg-card p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
+          <div className="bg-card p-5 sm:p-8 rounded-[2rem] border border-border/50 shadow-xl shadow-black/5">
             <div className="flex items-center gap-3 mb-8">
               <div className="p-3 bg-amber-100 rounded-xl text-amber-600">
                 <KeyRound className="w-6 h-6" />
@@ -468,7 +468,7 @@ export default function ConfiguracoesPage() {
         {/* Info Sidebar */}
         <div className="space-y-6">
           {tenant?.slug && <QrCodeShareCard slug={tenant.slug} salonName={tenant.name} primaryColor={profile.primaryColor} />}
-          <div className="bg-secondary/50 rounded-[2rem] p-8 border border-border">
+          <div className="bg-secondary/50 rounded-[2rem] p-5 sm:p-8 border border-border">
             <h3 className="text-xl font-display font-bold mb-4">Sua Página Pública</h3>
             {tenant?.slug && (
               <>
@@ -482,7 +482,7 @@ export default function ConfiguracoesPage() {
             )}
           </div>
 
-          <div className="bg-primary/5 rounded-[2rem] p-8 border border-primary/20">
+          <div className="bg-primary/5 rounded-[2rem] p-5 sm:p-8 border border-primary/20">
             <h3 className="text-xl font-display font-bold mb-4 text-primary">Notificações WhatsApp</h3>
             <p className="text-sm text-muted-foreground">
               Quando o WhatsApp estiver configurado, você receberá uma mensagem automática com os dados do cliente e as fotos de referência sempre que um novo agendamento for feito.
@@ -530,7 +530,7 @@ function QrCodeShareCard({ slug, salonName, primaryColor }: { slug: string; salo
   };
 
   return (
-    <div className="bg-card rounded-[2rem] p-8 border border-border/50 shadow-xl shadow-black/5">
+    <div className="bg-card rounded-[2rem] p-5 sm:p-8 border border-border/50 shadow-xl shadow-black/5">
       <div className="flex items-center gap-3 mb-5">
         <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
           <QrCode className="w-5 h-5" />
