@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { rateLimit } from "express-rate-limit";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { db, usersTable, tenantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { signToken, comparePassword, hashPassword, requireAuth, MIN_PASSWORD_LENGTH, type AuthRequest } from "../lib/auth.js";
@@ -33,7 +33,7 @@ const registerLimiter = rateLimit({
   limit: process.env.NODE_ENV === "development" ? 50 : 3,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip ?? "unknown",
+  keyGenerator: (req) => ipKeyGenerator(req),
   message: {
     error: "TooManyRequests",
     message: "Limite de cadastros por IP atingido. Por segurança, permitimos no máximo 3 cadastros por endereço de rede a cada 24 horas. Tente novamente amanhã ou entre em contato: contato@trancify.com.br",
