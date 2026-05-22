@@ -14,7 +14,9 @@ export default function AgendamentosPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const { data: appointments, isLoading, refetch } = useGetMyAppointments();
 
-  const filtered = appointments?.filter(a => filterStatus === "all" || a.status === filterStatus).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) || [];
+  const filtered = (appointments ?? [])
+    .filter(a => filterStatus === "all" || a.status === filterStatus)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <DashboardLayout>

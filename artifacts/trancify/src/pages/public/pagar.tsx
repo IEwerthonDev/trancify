@@ -9,6 +9,7 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { buildPublicTheme, hexToRgba } from "@/lib/public-theme";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -51,6 +52,8 @@ export default function PublicPagarPage() {
   }
 
   const primaryColor = tenant.primaryColor || "#7D2535";
+  const secondaryColor = tenant.secondaryColor || "#FAF7F5";
+  const publicThemeVars = buildPublicTheme(primaryColor, secondaryColor);
 
   const handleSearch = async () => {
     const digits = cpf.replace(/\D/g, "");
@@ -99,29 +102,29 @@ export default function PublicPagarPage() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="bg-white border-b border-stone-200 sticky top-0 z-20">
+    <div className="min-h-screen bg-background text-foreground" style={publicThemeVars}>
+      <div className="bg-card border-b border-border sticky top-0 z-20">
         <div className="max-w-2xl mx-auto px-4 h-20 flex items-center gap-4">
-          <Link href={`/${slug}`} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+          <Link href={`/${slug}`} className="p-2 hover:bg-secondary rounded-full transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </Link>
           {tenant.logoUrl ? (
-            <img src={tenant.logoUrl} className="w-12 h-12 rounded-full object-cover border-2 border-stone-200" alt="Logo" />
+            <img src={tenant.logoUrl} className="w-12 h-12 rounded-full object-cover border-2 border-border" alt="Logo" />
           ) : (
-            <div className="w-12 h-12 rounded-full text-white flex items-center justify-center font-bold text-xl" style={{ background: primaryColor }}>{tenant.name.charAt(0)}</div>
+            <div className="w-12 h-12 rounded-full text-primary-foreground flex items-center justify-center font-bold text-xl" style={{ background: primaryColor }}>{tenant.name.charAt(0)}</div>
           )}
           <div>
             <h1 className="text-xl font-bold leading-tight">{tenant.name}</h1>
-            <p className="text-xs text-stone-500 uppercase tracking-widest font-semibold">Pagamento com CPF</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Pagamento com CPF</p>
           </div>
         </div>
       </div>
 
       <main className="max-w-2xl mx-auto px-4 py-8 pb-24 space-y-6">
-        <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6">
+        <div className="bg-card rounded-3xl border border-border shadow-sm p-6">
           <h2 className="text-2xl font-bold mb-2">Pague seu sinal ou valor inteiro</h2>
-          <p className="text-stone-600 text-sm mb-5">
-            Tem um <strong>Pré-Agendamento</strong> aguardando pagamento? Digite seu CPF para localizar e finalizar.
+          <p className="text-muted-foreground text-sm mb-5">
+            Tem um <strong className="text-foreground">Pré-Agendamento</strong> aguardando pagamento? Digite seu CPF para localizar e finalizar.
           </p>
           <div className="flex gap-2">
             <Input
@@ -131,7 +134,12 @@ export default function PublicPagarPage() {
               placeholder="Digite seu CPF (11 dígitos)"
               className="text-lg h-12"
             />
-            <Button onClick={handleSearch} disabled={loading || cpf.replace(/\D/g, "").length !== 11} className="h-12 px-5" style={{ background: primaryColor }}>
+            <Button
+              onClick={handleSearch}
+              disabled={loading || cpf.replace(/\D/g, "").length !== 11}
+              className="h-12 px-5 text-primary-foreground hover:opacity-90"
+              style={{ background: primaryColor }}
+            >
               <Search className="w-4 h-4 mr-1" />
               {loading ? "Buscando..." : "Buscar"}
             </Button>
@@ -139,10 +147,10 @@ export default function PublicPagarPage() {
         </div>
 
         {searched && results.length === 0 && (
-          <div className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6 sm:p-8 text-center">
+          <div className="bg-card rounded-3xl border border-border shadow-sm p-6 sm:p-8 text-center">
             <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
             <h3 className="font-bold text-lg mb-1">Nenhum agendamento pendente</h3>
-            <p className="text-stone-600 text-sm">
+            <p className="text-muted-foreground text-sm">
               Não encontramos agendamentos aguardando pagamento para este CPF.
               Se acha que isso é um erro, fale com o salão.
             </p>
@@ -157,27 +165,33 @@ export default function PublicPagarPage() {
             : null;
           const isLatePay = deadlineLabel && new Date(appt.depositDeadline!) < new Date(new Date().toISOString().slice(0, 10));
           return (
-            <div key={appt.id} className="bg-white rounded-3xl border border-stone-200 shadow-sm p-6">
+            <div key={appt.id} className="bg-card rounded-3xl border border-border shadow-sm p-6">
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
                   <h3 className="font-bold text-lg">{appt.serviceName}</h3>
-                  <p className="text-sm text-stone-600">{dateLabel} às {appt.time}</p>
+                  <p className="text-sm text-muted-foreground">{dateLabel} às {appt.time}</p>
                   {appt.bookingType === "pre_appointment" && deadlineLabel && (
-                    <p className={`text-xs mt-1 flex items-center gap-1 ${isLatePay ? "text-red-600" : "text-amber-700"}`}>
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${isLatePay ? "text-red-500" : "text-amber-500"}`}>
                       <Clock className="w-3 h-3" />
                       Prazo para sinal: {deadlineLabel}
                     </p>
                   )}
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-stone-500">Valor do serviço</p>
+                  <p className="text-xs text-muted-foreground">Valor do serviço</p>
                   <p className="text-xl font-bold" style={{ color: primaryColor }}>{formatCurrency(appt.servicePrice)}</p>
                 </div>
               </div>
 
               {appt.paidAmount > 0 && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4 text-sm flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <div
+                  className="rounded-xl p-3 mb-4 text-sm flex items-center gap-2"
+                  style={{
+                    background: hexToRgba(primaryColor, 0.1),
+                    border: `1px solid ${hexToRgba(primaryColor, 0.25)}`,
+                  }}
+                >
+                  <CheckCircle className="w-4 h-4" style={{ color: primaryColor }} />
                   <span>
                     Já pago: <strong>{formatCurrency(appt.paidAmount)}</strong>
                     {remaining > 0 ? ` · Restam ${formatCurrency(remaining)}` : ""}
@@ -191,7 +205,7 @@ export default function PublicPagarPage() {
                     onClick={() => handlePay(appt, "deposit")}
                     disabled={paying === appt.id}
                     variant="outline"
-                    className="h-14 border-2 rounded-2xl text-base font-bold"
+                    className="h-14 border-2 rounded-2xl text-base font-bold bg-transparent hover:bg-transparent hover:opacity-80"
                     style={{ borderColor: primaryColor, color: primaryColor }}
                   >
                     <Wallet className="w-4 h-4 mr-2" />
@@ -202,7 +216,7 @@ export default function PublicPagarPage() {
                   <Button
                     onClick={() => handlePay(appt, "full")}
                     disabled={paying === appt.id}
-                    className="h-14 rounded-2xl text-base font-bold text-white"
+                    className="h-14 rounded-2xl text-base font-bold text-primary-foreground hover:opacity-90"
                     style={{ background: primaryColor }}
                   >
                     INTEIRA {formatCurrency(remaining > 0 ? remaining : appt.servicePrice)}
@@ -210,7 +224,7 @@ export default function PublicPagarPage() {
                 )}
               </div>
 
-              <p className="text-[11px] text-stone-500 mt-3 text-center">
+              <p className="text-[11px] text-muted-foreground mt-3 text-center">
                 Pagamento simulado para teste — em produção o gateway (Pix/Cartão) abrirá aqui.
               </p>
             </div>
