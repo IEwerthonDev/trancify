@@ -1,0 +1,63 @@
+Uncaught TypeError: can't access property "classes", n is undefined
+    kj https://trancify.replit.app/assets/index-3tS3qI1s.js:61
+    Cy https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    Ky https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    qT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    dE https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    OF https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    yv https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    oE https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    AE https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ru https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    jE https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    RF https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    RF https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    na https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ar https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    LO https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    DO https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    batchCalls https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    n https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    l https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    l https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    r https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    l https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    setTimeout handler*_7 https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    l https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    batch https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    #i https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    setData https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    fetch https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    #d https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    onSubscribe https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    subscribe https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    c9 https://trancify.replit.app/assets/index-3tS3qI1s.js:9
+    DO https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    Xc https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    JT https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+    ta https://trancify.replit.app/assets/index-3tS3qI1s.js:8
+index-3tS3qI1s.js:61:23802
+
+​

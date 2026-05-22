@@ -290,13 +290,14 @@ function DetailModal({ appointment }: { appointment: any }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: any = {
+  const map: Record<string, { label: string; classes: string }> = {
     pending: { label: "Pendente", classes: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700" },
     confirmed: { label: "Confirmado", classes: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-700" },
     completed: { label: "Concluído", classes: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700" },
     cancelled: { label: "Cancelado", classes: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-700" },
+    expired: { label: "Expirado", classes: "bg-stone-200 dark:bg-stone-800/60 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700" },
   };
-  const config = map[status];
+  const config = map[status] ?? { label: status || "—", classes: "bg-stone-100 dark:bg-stone-800/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700" };
   return (
     <span className={`px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${config.classes}`}>
       {config.label}
