@@ -82,6 +82,9 @@ router.post("/pending-payments", async (req, res) => {
       appts.map((a) => ({
         id: a.id,
         serviceName: a.serviceName,
+        braidSize: a.braidSize,
+        clientName: a.clientName,
+        status: a.status,
         date: a.date,
         time: a.time,
         servicePrice: a.servicePrice,
