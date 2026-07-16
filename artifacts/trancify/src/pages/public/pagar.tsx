@@ -28,6 +28,7 @@ type Appt = {
   depositAmount: number;
   paidAmount: number;
   paymentStatus: "unpaid" | "deposit_paid" | "fully_paid";
+  paymentMethod: "pix" | "card" | "cash";
   bookingType: "appointment" | "pre_appointment";
   depositDeadline: string | null;
 };
@@ -37,6 +38,12 @@ type PendingAppt = Appt;
 const BRAID_LABEL: Record<string, string> = {
   mid_back: "Até o meio das costas",
   waist_butt: "Até a cintura / Bumbum",
+};
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  pix: "Pix",
+  card: "Cartão",
+  cash: "Dinheiro (no salão)",
 };
 
 const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
@@ -156,12 +163,19 @@ export default function PublicPagarPage() {
   };
 
   const handlePay = async (appt: PendingAppt, type: "deposit" | "full") => {
+    if (appt.paymentMethod === "cash") {
+      toast({
+        title: "Pagamento no salão",
+        description: "Você escolheu pagar em dinheiro. O pagamento é feito presencialmente no atendimento.",
+      });
+      return;
+    }
+
     setPaying(appt.id);
     try {
       const digits = cpf.replace(/\D/g, "");
 
-      // 1) Try the real InfinitePay flow first. If the salon has an
-      // InfiniteTag configured, we get a checkout link and redirect.
+      // InfinitePay only for Pix/card when the salon has InfiniteTag configured.
       const linkRes = await fetch(`${BASE}/api/payments/link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -169,6 +183,13 @@ export default function PublicPagarPage() {
       });
       if (linkRes.ok) {
         const linkData = await linkRes.json();
+        if (linkData.reason === "cash_not_supported") {
+          toast({
+            title: "Pagamento no salão",
+            description: "Dinheiro não usa InfinitePay. Pague presencialmente no atendimento.",
+          });
+          return;
+        }
         if (!linkData.simulated && linkData.checkoutUrl) {
           sessionStorage.setItem("trancify_pagar_cpf", digits);
           window.location.href = linkData.checkoutUrl;
@@ -178,12 +199,11 @@ export default function PublicPagarPage() {
         const err = await linkRes.json().catch(() => ({ message: "Erro" }));
         throw new Error(err.message || "Agendamento não pode mais ser pago");
       } else if (linkRes.status !== 404) {
-        // 502/500 — gateway problem creating the link
         const err = await linkRes.json().catch(() => ({ message: "" }));
         if (err?.error === "GatewayError") throw new Error(err.message);
       }
 
-      // 2) Fallback: simulated payment (salon without InfiniteTag)
+      // Fallback: simulated payment (salon without InfiniteTag)
       const res = await fetch(`${BASE}/api/clients/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -364,6 +384,8 @@ export default function PublicPagarPage() {
                           <p className="font-semibold text-sm">{appt.clientName}</p>
                           <p className="text-xs text-muted-foreground capitalize">
                             {appt.bookingType === "pre_appointment" ? "Pré-agendamento" : "Agendamento"}
+                            {" · "}
+                            {PAYMENT_METHOD_LABEL[appt.paymentMethod] ?? appt.paymentMethod}
                           </p>
                         </div>
                       </div>
@@ -413,6 +435,14 @@ export default function PublicPagarPage() {
                         <CheckCircle className="w-5 h-5" />
                         Pagamento inteiro realizado
                       </div>
+                    ) : appt.paymentMethod === "cash" ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-1">
+                        <p className="font-bold text-sm text-amber-900">Pagamento em dinheiro no salão</p>
+                        <p className="text-xs text-amber-800">
+                          Você escolheu pagar em dinheiro. O InfinitePay (Pix/cartão online) não se aplica —
+                          leve o valor no dia do atendimento.
+                        </p>
+                      </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {appt.paymentStatus === "unpaid" && (
@@ -439,9 +469,11 @@ export default function PublicPagarPage() {
                       </div>
                     )}
 
-                    <p className="text-[11px] text-muted-foreground text-center">
-                      Pagamento simulado para teste — em produção o gateway (Pix/Cartão) abrirá aqui.
-                    </p>
+                    {!isPaid && appt.paymentMethod !== "cash" && (
+                      <p className="text-[11px] text-muted-foreground text-center">
+                        Pagamento online via Pix ou cartão (InfinitePay). Sem InfiniteTag configurada, o pagamento fica em modo simulado.
+                      </p>
+                    )}
                   </div>
                 </div>
               );

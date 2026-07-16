@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trancify
+      POSTGRES_PASSWORD: trancify
+      POSTGRES_DB: trancify
+    ports:
+      - "5433:5432"
+    volumes:
+      - trancify_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trancify -d trancify"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DATABASE_URL: postgresql://trancify:trancify@db:5432/trancify
+      JWT_SECRET: ${JWT_SECRET:-trancify-local-dev-secret-change-me}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      SKIP_BOOTSTRAP_SEED: "1"
+      CALLMEBOT_APIKEY: ${CALLMEBOT_APIKEY:-}
+      CALLMEBOT_PHONE: ${CALLMEBOT_PHONE:-}
+      PUBLIC_OBJECT_SEARCH_PATHS: ${PUBLIC_OBJECT_SEARCH_PATHS:-}
+      PRIVATE_OBJECT_DIR: ${PRIVATE_OBJECT_DIR:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  trancify_pgdata:

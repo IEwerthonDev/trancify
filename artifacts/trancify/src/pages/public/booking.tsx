@@ -949,6 +949,9 @@ export default function PublicBookingPage() {
                       </button>
                     ))}
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Pix e cartão permitem pagamento online (InfinitePay). Dinheiro é pago presencialmente no salão.
+                  </p>
                   {errors.payment && <p className="text-destructive text-xs mt-1 font-medium">{errors.payment}</p>}
                 </div>
               </div>

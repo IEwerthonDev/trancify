@@ -309,7 +309,8 @@ export default function ConfiguracoesPage() {
                   className="h-12"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Sua tag da InfinitePay para receber pagamentos via Pix e cartão. Deixe em branco para usar o modo simulado.
+                  Tag da InfinitePay (sem o $) para receber Pix e cartão online. Dinheiro continua presencial.
+                  Deixe em branco para modo simulado. Veja <code className="text-[11px]">INFINITEPAY.md</code>.
                 </p>
               </Field>
 

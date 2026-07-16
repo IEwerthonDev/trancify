@@ -154,7 +154,17 @@ router.post("/link", async (req, res) => {
     const handle = normalizeHandle(tenant.infinitepayHandle);
     if (!handle) {
       // No InfiniteTag configured — frontend should use the simulated flow.
-      res.json({ simulated: true });
+      res.json({ simulated: true, reason: "no_handle" });
+      return;
+    }
+
+    // InfinitePay checkout only supports Pix and card — cash is paid in person.
+    if (appt.paymentMethod === "cash") {
+      res.json({ simulated: true, reason: "cash_not_supported" });
+      return;
+    }
+    if (appt.paymentMethod !== "pix" && appt.paymentMethod !== "card") {
+      res.json({ simulated: true, reason: "unsupported_method" });
       return;
     }
 

@@ -20,7 +20,6 @@ Use as skills `workflows` e `package-management` do Replit para gerenciar workfl
 Use a skill `environment-secrets` para ler ou solicitar variáveis sensíveis. Segredos já configurados:
 - `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` — banco de dados
 - `JWT_SECRET` — assinatura de tokens
-- `SESSION_SECRET` — sessão
 
 ### 3. Não modificar arquivos gerados por codegen
 Os arquivos em `lib/api-client-react/` e `lib/api-zod/` são gerados automaticamente. Para alterá-los, modifique `lib/api-spec/openapi.yaml` e execute:
@@ -41,6 +40,7 @@ O app usa JWT + bcrypt customizado. Não substituir por Replit Auth nem Clerk.
 | O que fazer                      | Onde colocar                                      |
 |----------------------------------|---------------------------------------------------|
 | Nova rota de API                 | `artifacts/api-server/src/routes/`                |
+| Registrar rota no router         | `artifacts/api-server/src/routes/index.ts`        |
 | Novo endpoint → atualizar spec   | `lib/api-spec/openapi.yaml` → rodar codegen       |
 | Nova página frontend             | `artifacts/trancify/src/pages/`                   |
 | Novo componente UI               | `artifacts/trancify/src/components/`              |
@@ -48,6 +48,7 @@ O app usa JWT + bcrypt customizado. Não substituir por Replit Auth nem Clerk.
 | Nova tabela no banco             | `lib/db/src/schema/` → rodar `db push`            |
 | Nova lógica de negócio           | `artifacts/api-server/src/lib/`                   |
 | Seed de dados demo               | `scripts/src/seed.ts`                             |
+| Upload / ObjectUploader          | `lib/object-storage-web/`                         |
 
 ---
 
@@ -76,7 +77,7 @@ pnpm run typecheck
 
 ### Mudança de backend (nova rota):
 1. Criar/editar arquivo em `artifacts/api-server/src/routes/`
-2. Registrar a rota em `artifacts/api-server/src/index.ts`
+2. Registrar a rota em `artifacts/api-server/src/routes/index.ts` (o router é montado em `app.ts` sob `/api`)
 3. Atualizar `lib/api-spec/openapi.yaml`
 4. Rodar codegen
 5. Reiniciar o workflow `artifacts/api-server: API Server`
@@ -89,16 +90,21 @@ pnpm run typecheck
 ### Mudança de frontend:
 1. Editar arquivos em `artifacts/trancify/src/`
 2. O Vite faz hot-reload automaticamente — não precisa reiniciar
+3. Localmente o Vite exige `PORT` e `BASE_PATH` (ex.: `PORT=5173 BASE_PATH=/ pnpm --filter @workspace/trancify run dev`)
 
 ---
 
 ## Credenciais de Desenvolvimento
 
+Ver **[SEED_CREDENTIALS.md](./SEED_CREDENTIALS.md)** para a lista completa de logins, CPFs, tokens e URLs demo.
+
 | Papel       | E-mail                      | Senha      | URL                  |
 |-------------|------------------------------|------------|----------------------|
 | Super Admin | admin@trancify.com           | admin123   | /login → /admin      |
 | Tenant Demo | demo@salaodanaira.com.br     | tenant123  | /login → /dashboard  |
+| Tenant Trial| demo@belatransa.com.br       | tenant123  | /login → /dashboard  |
 | Booking     | (sem login, público)         | —          | /naira               |
+| Cliente CPF | 12345678909                  | —          | /pagar/naira         |
 
 ---
 
@@ -131,10 +137,14 @@ Middleware requireAuth:
 
 ## Integrações Externas
 
-| Serviço          | Variáveis                              | Comportamento sem config      |
-|------------------|----------------------------------------|-------------------------------|
-| Z-API (WhatsApp) | ZAPI_INSTANCE_ID, ZAPI_TOKEN           | Silenciosamente ignorado      |
-| Google Storage   | Credenciais GCP                        | Upload de fotos desabilitado  |
+| Serviço              | Variáveis                                         | Comportamento sem config      |
+|----------------------|---------------------------------------------------|-------------------------------|
+| CallMeBot (WhatsApp) | `CALLMEBOT_APIKEY`, `CALLMEBOT_PHONE`             | Silenciosamente ignorado      |
+| Google Storage       | `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR` | Upload de fotos desabilitado |
+| InfinitePay          | handle por tenant (`infinitepayHandle`)           | Pagamentos em modo simulado   |
+
+InfinitePay só é usado quando a cliente escolhe **Pix** ou **Cartão**.
+**Dinheiro** é presencial. Detalhes: `INFINITEPAY.md`.
 
 ---
 

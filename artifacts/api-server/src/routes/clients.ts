@@ -92,6 +92,7 @@ router.post("/pending-payments", async (req, res) => {
         depositAmount: a.depositAmount ?? Math.round(a.servicePrice * 50) / 100,
         paidAmount: a.paidAmount,
         paymentStatus: a.paymentStatus,
+        paymentMethod: a.paymentMethod,
         bookingType: a.bookingType,
         depositDeadline: a.depositDeadline,
       }))
@@ -144,6 +145,7 @@ router.post("/history", async (req, res) => {
         depositAmount: a.depositAmount ?? Math.round(a.servicePrice * 50) / 100,
         paidAmount: a.paidAmount,
         paymentStatus: a.paymentStatus,
+        paymentMethod: a.paymentMethod,
         bookingType: a.bookingType,
         depositDeadline: a.depositDeadline,
       }))

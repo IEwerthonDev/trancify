@@ -60,7 +60,6 @@ export async function bootstrapSeed(): Promise<void> {
         whatsapp: "5511999887766",
         primaryColor: "#6D1F3A",
         status: "active",
-        plan: "professional",
       })
       .returning();
 
@@ -88,11 +87,24 @@ export async function bootstrapSeed(): Promise<void> {
     await db.insert(availabilityTable).values({
       tenantId: tenant.id,
       availableDays: [1, 2, 3, 4, 5, 6],
+      availableDates: (() => {
+        const dates: string[] = [];
+        const allowed = new Set([1, 2, 3, 4, 5, 6]);
+        const cursor = new Date();
+        cursor.setHours(12, 0, 0, 0);
+        for (let i = 0; i < 60; i++) {
+          if (allowed.has(cursor.getDay())) {
+            dates.push(cursor.toISOString().slice(0, 10));
+          }
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        return dates;
+      })(),
       startTime: "08:00",
       endTime: "17:00",
       slotIntervalMinutes: 30,
       breakAfterMinutes: 90,
-      maxAppointmentsPerDay: 2,
+      maxAppointmentsPerDay: 4,
       blockedDates: [],
     });
 
