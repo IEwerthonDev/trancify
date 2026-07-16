@@ -89,6 +89,7 @@ export interface Tenant {
   email: string;
   whatsapp?: string | null;
   logoUrl?: string | null;
+  infinitepayHandle?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
   status: TenantStatus;
@@ -116,6 +117,7 @@ export interface UpdateTenantRequest {
   slug?: string;
   whatsapp?: string;
   logoUrl?: string;
+  infinitepayHandle?: string;
   primaryColor?: string;
   secondaryColor?: string;
 }

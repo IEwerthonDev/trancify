@@ -74,6 +74,7 @@ export default function ConfiguracoesPage() {
     slug: "",
     whatsapp: "",
     logoUrl: "",
+    infinitepayHandle: "",
     primaryColor: DEFAULT_PRIMARY,
     secondaryColor: DEFAULT_SECONDARY,
   });
@@ -98,6 +99,7 @@ export default function ConfiguracoesPage() {
         slug: tenant.slug ?? "",
         whatsapp: tenant.whatsapp ?? "",
         logoUrl: tenant.logoUrl ?? "",
+        infinitepayHandle: tenant.infinitepayHandle ?? "",
         primaryColor: tenant.primaryColor ?? DEFAULT_PRIMARY,
         secondaryColor: (tenant as any).secondaryColor ?? DEFAULT_SECONDARY,
       });
@@ -131,6 +133,7 @@ export default function ConfiguracoesPage() {
           slug: profile.slug || undefined,
           whatsapp: profile.whatsapp || undefined,
           logoUrl: profile.logoUrl || undefined,
+          infinitepayHandle: profile.infinitepayHandle.trim(),
           primaryColor: profile.primaryColor,
           secondaryColor: profile.secondaryColor,
         } as any,
@@ -295,6 +298,18 @@ export default function ConfiguracoesPage() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Usado para receber notificações de novos agendamentos.
+                </p>
+              </Field>
+
+              <Field label="InfiniteTag (InfinitePay)">
+                <Input
+                  value={profile.infinitepayHandle}
+                  onChange={(e) => setProfile({ ...profile, infinitepayHandle: e.target.value })}
+                  placeholder="$sua-infinitetag"
+                  className="h-12"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sua tag da InfinitePay para receber pagamentos via Pix e cartão. Deixe em branco para usar o modo simulado.
                 </p>
               </Field>
 

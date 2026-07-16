@@ -31,6 +31,9 @@ export const tenantsTable = pgTable("tenants", {
   // Salon settings
   whatsapp: text("whatsapp"),
   logoUrl: text("logo_url"),
+  // InfinitePay handle (InfiniteTag without the $). When set, real payment
+  // links are generated; when null, payments fall back to simulated mode.
+  infinitepayHandle: text("infinitepay_handle"),
   primaryColor: text("primary_color"),
   secondaryColor: text("secondary_color"),
 

@@ -97,6 +97,20 @@ When a new appointment is booked, a WhatsApp message is automatically sent to th
 
 If these variables are not set, the notification is silently skipped and the booking still works normally.
 
+## User Preferences
+
+- **Public pages rule (permanent)**: every new public page must use the tenant's dynamic theme via `buildPublicTheme(primaryColor, secondaryColor)` and be mobile-first responsive.
+
+## Payments (InfinitePay)
+
+- Tenants configure their **InfiniteTag** (`tenants.infinitepay_handle`) in Configurações. Stored normalized (no leading `$`, trimmed; empty → NULL).
+- Client flow at `/pagar/:slug`: `POST /api/payments/link` (public, CPF-validated). If the tenant has an InfiniteTag, returns `checkoutUrl` (InfinitePay checkout link) and the client is redirected; otherwise returns `{simulated:true}` and the frontend falls back to `POST /api/clients/pay` (simulated payment).
+- Redirect back: `GET /api/payments/callback` verifies server-side via InfinitePay `payment_check` (never trusts redirect params), updates the appointment atomically, records `payment_attempts`, then redirects to `/pagar/:slug?paid=1&receipt_url=...`. `POST /api/payments/webhook` handles async confirmation the same way.
+- Dashboard tab **Pagamentos** (`/dashboard/pagamentos`): summary + paid/pending lists via `GET /api/payments` (tenant auth), with live updates over WebSocket at `/api/ws?token=<JWT>` (server emits `{type:"payment"}` events per tenant).
+- Payments endpoints are intentionally NOT in the OpenAPI spec — frontend uses raw `fetch` (same pattern as `/clients` endpoints).
+- Money is stored in reais; InfinitePay expects centavos (`Math.round(x * 100)`).
+- Env: `PUBLIC_BASE_URL` optional (falls back to `https://$REPLIT_DEV_DOMAIN`) for callback/redirect URLs.
+
 ## Running Locally
 
 ```bash

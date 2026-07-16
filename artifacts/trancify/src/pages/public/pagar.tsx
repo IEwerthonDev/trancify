@@ -72,6 +72,27 @@ export default function PublicPagarPage() {
   const [results, setResults] = useState<PendingAppt[]>([]);
   const [history, setHistory] = useState<Appt[]>([]);
   const [paying, setPaying] = useState<string | null>(null);
+  const [paymentReturn, setPaymentReturn] = useState<{ ok: boolean; receiptUrl: string | null } | null>(null);
+
+  // Handle the redirect back from the InfinitePay checkout:
+  // /pagar/:slug?paid=1&receipt_url=... — show a banner and re-run the search
+  // with the CPF we saved before redirecting.
+  useEffect(() => {
+    if (!tenant?.id) return;
+    const params = new URLSearchParams(window.location.search);
+    const paid = params.get("paid");
+    if (paid === null) return;
+    const receiptUrl = params.get("receipt_url");
+    setPaymentReturn({ ok: paid === "1", receiptUrl });
+    // Clean the URL so refreshes don't re-show the banner
+    window.history.replaceState({}, "", window.location.pathname);
+    const savedCpf = sessionStorage.getItem("trancify_pagar_cpf");
+    if (savedCpf && savedCpf.length === 11) {
+      setCpf(savedCpf);
+      void runSearch(savedCpf);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenant?.id]);
 
   if (loadTenant) {
     return (
@@ -94,6 +115,10 @@ export default function PublicPagarPage() {
       toast({ title: "CPF inválido", description: "Informe os 11 dígitos.", variant: "destructive" });
       return;
     }
+    await runSearch(digits);
+  };
+
+  const runSearch = async (digits: string) => {
     setLoading(true);
     try {
       const [pendingRes, historyRes] = await Promise.all([
@@ -122,6 +147,7 @@ export default function PublicPagarPage() {
       );
       setHistory(pastAppts);
       setSearched(true);
+      sessionStorage.setItem("trancify_pagar_cpf", digits);
     } catch {
       toast({ title: "Erro na busca", variant: "destructive" });
     } finally {
@@ -133,6 +159,31 @@ export default function PublicPagarPage() {
     setPaying(appt.id);
     try {
       const digits = cpf.replace(/\D/g, "");
+
+      // 1) Try the real InfinitePay flow first. If the salon has an
+      // InfiniteTag configured, we get a checkout link and redirect.
+      const linkRes = await fetch(`${BASE}/api/payments/link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId: appt.id, cpf: digits, paymentType: type }),
+      });
+      if (linkRes.ok) {
+        const linkData = await linkRes.json();
+        if (!linkData.simulated && linkData.checkoutUrl) {
+          sessionStorage.setItem("trancify_pagar_cpf", digits);
+          window.location.href = linkData.checkoutUrl;
+          return;
+        }
+      } else if (linkRes.status === 409) {
+        const err = await linkRes.json().catch(() => ({ message: "Erro" }));
+        throw new Error(err.message || "Agendamento não pode mais ser pago");
+      } else if (linkRes.status !== 404) {
+        // 502/500 — gateway problem creating the link
+        const err = await linkRes.json().catch(() => ({ message: "" }));
+        if (err?.error === "GatewayError") throw new Error(err.message);
+      }
+
+      // 2) Fallback: simulated payment (salon without InfiniteTag)
       const res = await fetch(`${BASE}/api/clients/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -184,6 +235,50 @@ export default function PublicPagarPage() {
       </div>
 
       <main className="max-w-2xl mx-auto px-4 py-8 pb-24 space-y-6">
+        {/* Payment return banner (redirect back from InfinitePay) */}
+        {paymentReturn && (
+          <div
+            className={`rounded-3xl border shadow-sm p-5 flex items-start gap-3 ${
+              paymentReturn.ok
+                ? "bg-emerald-50 border-emerald-200"
+                : "bg-red-50 border-red-200"
+            }`}
+          >
+            {paymentReturn.ok ? (
+              <CheckCircle className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className={`font-bold ${paymentReturn.ok ? "text-emerald-800" : "text-red-800"}`}>
+                {paymentReturn.ok ? "Pagamento confirmado!" : "Pagamento não confirmado"}
+              </p>
+              <p className={`text-sm mt-0.5 ${paymentReturn.ok ? "text-emerald-700" : "text-red-700"}`}>
+                {paymentReturn.ok
+                  ? "Seu pagamento foi processado e o horário está garantido."
+                  : "O pagamento não foi concluído. Você pode tentar novamente abaixo."}
+              </p>
+              {paymentReturn.ok && paymentReturn.receiptUrl && (
+                <a
+                  href={paymentReturn.receiptUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block mt-2 text-sm font-bold text-emerald-700 underline"
+                >
+                  Ver comprovante
+                </a>
+              )}
+            </div>
+            <button
+              onClick={() => setPaymentReturn(null)}
+              className="text-sm font-bold opacity-60 hover:opacity-100 px-1"
+              aria-label="Fechar"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* CPF search */}
         <div className="bg-card rounded-3xl border border-border shadow-sm p-6">
           <h2 className="text-2xl font-bold mb-1">Encontre seu agendamento</h2>

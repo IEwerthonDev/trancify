@@ -85,6 +85,7 @@ export const GetMyTenantResponse = zod.object({
   email: zod.string(),
   whatsapp: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
+  infinitepayHandle: zod.string().nullish(),
   primaryColor: zod.string().nullish(),
   secondaryColor: zod.string().nullish(),
   status: zod.enum(["active", "blocked"]),
@@ -112,6 +113,7 @@ export const UpdateMyTenantBody = zod.object({
     .optional(),
   whatsapp: zod.string().optional(),
   logoUrl: zod.string().optional(),
+  infinitepayHandle: zod.string().optional(),
   primaryColor: zod.string().optional(),
   secondaryColor: zod.string().optional(),
 });
@@ -123,6 +125,7 @@ export const UpdateMyTenantResponse = zod.object({
   email: zod.string(),
   whatsapp: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
+  infinitepayHandle: zod.string().nullish(),
   primaryColor: zod.string().nullish(),
   secondaryColor: zod.string().nullish(),
   status: zod.enum(["active", "blocked"]),

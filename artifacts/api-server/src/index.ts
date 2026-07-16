@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startScheduler } from "./lib/scheduler";
 import { bootstrapSeed } from "./lib/bootstrap";
+import { setupWebSocket } from "./lib/ws";
 
 const rawPort = process.env["PORT"];
 
@@ -17,7 +18,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -27,3 +28,5 @@ app.listen(port, (err) => {
   startScheduler();
   void bootstrapSeed();
 });
+
+setupWebSocket(server);

@@ -843,6 +843,9 @@ components:
         logoUrl:
           type: string
           nullable: true
+        infinitepayHandle:
+          type: string
+          nullable: true
         primaryColor:
           type: string
           nullable: true
@@ -896,6 +899,8 @@ components:
         whatsapp:
           type: string
         logoUrl:
+          type: string
+        infinitepayHandle:
           type: string
         primaryColor:
           type: string

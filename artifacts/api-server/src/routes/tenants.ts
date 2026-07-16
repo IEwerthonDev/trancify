@@ -13,6 +13,7 @@ const updateTenantSchema = z.object({
   slug: z.string().min(3).max(50).regex(SLUG_REGEX, "Slug inválido: use apenas letras minúsculas, números e hífens").optional(),
   whatsapp: z.string().optional(),
   logoUrl: z.string().optional(),
+  infinitepayHandle: z.string().max(100).optional(),
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
 });
@@ -37,6 +38,7 @@ function formatTenant(tenant: typeof tenantsTable.$inferSelect) {
     email: "",
     whatsapp: tenant.whatsapp ?? null,
     logoUrl: tenant.logoUrl ?? null,
+    infinitepayHandle: tenant.infinitepayHandle ?? null,
     primaryColor: tenant.primaryColor ?? null,
     secondaryColor: tenant.secondaryColor ?? null,
     status: tenant.status,
@@ -73,9 +75,15 @@ router.patch("/me", requireTenant, async (req: AuthRequest, res) => {
   }
 
   try {
+    const data: Record<string, unknown> = { ...parsed.data };
+    if (typeof data.infinitepayHandle === "string") {
+      const trimmed = (data.infinitepayHandle as string).trim().replace(/^\$+/, "");
+      data.infinitepayHandle = trimmed.length > 0 ? trimmed : null;
+    }
+
     const [updated] = await db
       .update(tenantsTable)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(tenantsTable.id, req.user!.tenantId!))
       .returning();
 

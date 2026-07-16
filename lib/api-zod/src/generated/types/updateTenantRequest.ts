@@ -16,6 +16,7 @@ export interface UpdateTenantRequest {
   slug?: string;
   whatsapp?: string;
   logoUrl?: string;
+  infinitepayHandle?: string;
   primaryColor?: string;
   secondaryColor?: string;
 }

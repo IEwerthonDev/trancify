@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { db, clientsTable, appointmentsTable, tenantsTable } from "@workspace/db";
+import { db, clientsTable, appointmentsTable, tenantsTable, paymentAttemptsTable } from "@workspace/db";
 import { eq, and, inArray, ne, desc } from "drizzle-orm";
 import { z } from "zod";
+import { emitToTenant } from "../lib/ws.js";
 
 const router = Router();
 
@@ -214,6 +215,38 @@ router.post("/pay", async (req, res) => {
       });
       return;
     }
+
+    // Record a simulated payment attempt for the Pagamentos tab and notify
+    // the tenant dashboard in realtime.
+    const paidNow = updated[0]!;
+    const amountPaid = parsed.data.paymentType === "full"
+      ? Math.max(0, paidNow.servicePrice - appt.paidAmount)
+      : depositAmount;
+    try {
+      await db.insert(paymentAttemptsTable).values({
+        tenantId: paidNow.tenantId,
+        appointmentId: paidNow.id,
+        orderNsu: crypto.randomUUID(),
+        paymentType: parsed.data.paymentType,
+        amount: amountPaid,
+        status: "paid",
+        provider: "simulated",
+        paidAt: new Date(),
+      });
+    } catch (err) {
+      req.log.error({ err }, "Failed to record simulated payment attempt");
+    }
+    emitToTenant(paidNow.tenantId, {
+      type: "payment",
+      appointmentId: paidNow.id,
+      clientName: paidNow.clientName,
+      serviceName: paidNow.serviceName,
+      paymentType: parsed.data.paymentType,
+      amount: amountPaid,
+      paymentStatus: paidNow.paymentStatus,
+      provider: "simulated",
+      paidAt: new Date().toISOString(),
+    });
 
     res.json({
       message: "Pagamento registrado",

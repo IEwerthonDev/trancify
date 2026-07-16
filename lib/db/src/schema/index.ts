@@ -7,3 +7,4 @@ export * from "./reviews";
 export * from "./subscription-orders";
 export * from "./pending-registrations";
 export * from "./clients";
+export * from "./payment-attempts";

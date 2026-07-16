@@ -15,6 +15,7 @@ export interface Tenant {
   email: string;
   whatsapp?: string | null;
   logoUrl?: string | null;
+  infinitepayHandle?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
   status: TenantStatus;
