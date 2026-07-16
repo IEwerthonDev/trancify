@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, clientsTable, appointmentsTable, tenantsTable } from "@workspace/db";
-import { eq, and, inArray, ne } from "drizzle-orm";
+import { eq, and, inArray, ne, desc } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -97,6 +97,58 @@ router.post("/pending-payments", async (req, res) => {
     );
   } catch (err) {
     req.log.error({ err }, "Pending payments lookup error");
+    res.status(500).json({ error: "InternalError", message: "Erro interno" });
+  }
+});
+
+// POST /clients/history (public) — last 10 appointments for a CPF (all statuses)
+const historySchema = z.object({
+  tenantId: z.string().min(1),
+  cpf: z.string().min(1),
+});
+
+router.post("/history", async (req, res) => {
+  const parsed = historySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "ValidationError", message: "Dados inválidos" });
+    return;
+  }
+  const cpf = normalizeCpf(parsed.data.cpf);
+  if (cpf.length !== 11) {
+    res.status(400).json({ error: "ValidationError", message: "CPF deve ter 11 dígitos" });
+    return;
+  }
+  try {
+    const appts = await db
+      .select()
+      .from(appointmentsTable)
+      .where(
+        and(
+          eq(appointmentsTable.tenantId, parsed.data.tenantId),
+          eq(appointmentsTable.clientCpf, cpf)
+        )
+      )
+      .orderBy(desc(appointmentsTable.date), desc(appointmentsTable.time))
+      .limit(10);
+    res.json(
+      appts.map((a) => ({
+        id: a.id,
+        serviceName: a.serviceName,
+        braidSize: a.braidSize,
+        clientName: a.clientName,
+        status: a.status,
+        date: a.date,
+        time: a.time,
+        servicePrice: a.servicePrice,
+        depositAmount: a.depositAmount ?? Math.round(a.servicePrice * 50) / 100,
+        paidAmount: a.paidAmount,
+        paymentStatus: a.paymentStatus,
+        bookingType: a.bookingType,
+        depositDeadline: a.depositDeadline,
+      }))
+    );
+  } catch (err) {
+    req.log.error({ err }, "Client history lookup error");
     res.status(500).json({ error: "InternalError", message: "Erro interno" });
   }
 });

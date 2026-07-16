@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import {
   Search, CheckCircle, Clock, AlertTriangle, Wallet, ArrowLeft,
-  CalendarDays, Scissors, User, CreditCard,
+  CalendarDays, Scissors, User, CreditCard, History,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -16,7 +16,7 @@ import { buildPublicTheme, hexToRgba } from "@/lib/public-theme";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type PendingAppt = {
+type Appt = {
   id: string;
   serviceName: string;
   braidSize: "mid_back" | "waist_butt";
@@ -32,6 +32,8 @@ type PendingAppt = {
   depositDeadline: string | null;
 };
 
+type PendingAppt = Appt;
+
 const BRAID_LABEL: Record<string, string> = {
   mid_back: "Até o meio das costas",
   waist_butt: "Até a cintura / Bumbum",
@@ -44,6 +46,13 @@ const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
   cancelled: { label: "Cancelado", classes: "bg-red-100 text-red-800 border-red-300" },
   expired: { label: "Expirado", classes: "bg-stone-100 text-stone-600 border-stone-300" },
 };
+
+function isActiveAppt(a: Appt) {
+  return (
+    (a.status === "pending" || a.status === "confirmed") &&
+    (a.paymentStatus === "unpaid" || a.paymentStatus === "deposit_paid")
+  );
+}
 
 export default function PublicPagarPage() {
   const { slug } = useParams();
@@ -61,6 +70,7 @@ export default function PublicPagarPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<PendingAppt[]>([]);
+  const [history, setHistory] = useState<Appt[]>([]);
   const [paying, setPaying] = useState<string | null>(null);
 
   if (loadTenant) {
@@ -86,14 +96,31 @@ export default function PublicPagarPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/clients/pending-payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId: tenant.id, cpf: digits }),
-      });
-      if (!res.ok) throw new Error("Falha na busca");
-      const data: PendingAppt[] = await res.json();
-      setResults(data);
+      const [pendingRes, historyRes] = await Promise.all([
+        fetch(`${BASE}/api/clients/pending-payments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tenantId: tenant.id, cpf: digits }),
+        }),
+        fetch(`${BASE}/api/clients/history`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tenantId: tenant.id, cpf: digits }),
+        }),
+      ]);
+
+      if (!pendingRes.ok || !historyRes.ok) throw new Error("Falha na busca");
+
+      const pendingData: Appt[] = await pendingRes.json();
+      const historyData: Appt[] = await historyRes.json();
+
+      setResults(pendingData);
+
+      const activeIds = new Set(pendingData.map((a) => a.id));
+      const pastAppts = historyData.filter(
+        (a) => !activeIds.has(a.id) && !isActiveAppt(a)
+      );
+      setHistory(pastAppts);
       setSearched(true);
     } catch {
       toast({ title: "Erro na busca", variant: "destructive" });
@@ -126,6 +153,10 @@ export default function PublicPagarPage() {
       setPaying(null);
     }
   };
+
+  const hasActive = results.length > 0;
+  const hasPast = history.length > 0;
+  const nothingFound = searched && !hasActive && !hasPast;
 
   return (
     <div className="min-h-screen bg-background text-foreground" style={publicThemeVars}>
@@ -181,148 +212,185 @@ export default function PublicPagarPage() {
         </div>
 
         {/* Empty state */}
-        {searched && results.length === 0 && (
+        {nothingFound && (
           <div className="bg-card rounded-3xl border border-border shadow-sm p-8 text-center">
             <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-            <h3 className="font-bold text-lg mb-1">Nenhum agendamento ativo</h3>
+            <h3 className="font-bold text-lg mb-1">Nenhum agendamento encontrado</h3>
             <p className="text-muted-foreground text-sm">
-              Não encontramos agendamentos ativos para este CPF neste salão.
+              Não encontramos agendamentos para este CPF neste salão.
               Se acha que isso é um erro, entre em contato com o salão.
             </p>
           </div>
         )}
 
-        {/* Appointment cards */}
-        {results.map((appt) => {
-          const remaining = appt.servicePrice - appt.paidAmount;
-          const dateLabel = format(parseISO(appt.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-          const deadlineLabel = appt.depositDeadline
-            ? format(parseISO(appt.depositDeadline), "dd/MM/yyyy", { locale: ptBR })
-            : null;
-          const isLatePay = !!deadlineLabel && new Date(appt.depositDeadline!) < new Date(new Date().toISOString().slice(0, 10));
-          const statusConfig = STATUS_CONFIG[appt.status] ?? { label: appt.status, classes: "bg-stone-100 text-stone-600 border-stone-300" };
-          const isPaid = appt.paymentStatus === "fully_paid";
+        {/* Active appointment cards */}
+        {hasActive && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold px-1">Agendamentos ativos</h2>
+            {results.map((appt) => {
+              const remaining = appt.servicePrice - appt.paidAmount;
+              const dateLabel = format(parseISO(appt.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+              const deadlineLabel = appt.depositDeadline
+                ? format(parseISO(appt.depositDeadline), "dd/MM/yyyy", { locale: ptBR })
+                : null;
+              const isLatePay = !!deadlineLabel && new Date(appt.depositDeadline!) < new Date(new Date().toISOString().slice(0, 10));
+              const statusConfig = STATUS_CONFIG[appt.status] ?? { label: appt.status, classes: "bg-stone-100 text-stone-600 border-stone-300" };
+              const isPaid = appt.paymentStatus === "fully_paid";
 
-          return (
-            <div key={appt.id} className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden">
-              {/* Colored top bar */}
-              <div className="h-1.5" style={{ background: primaryColor }} />
+              return (
+                <div key={appt.id} className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden">
+                  <div className="h-1.5" style={{ background: primaryColor }} />
 
-              <div className="p-6 space-y-5">
-                {/* Service + status */}
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-xl leading-tight">{appt.serviceName}</h3>
-                    <p className="text-sm text-muted-foreground mt-0.5">{BRAID_LABEL[appt.braidSize] ?? appt.braidSize}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap shrink-0 ${statusConfig.classes}`}>
-                    {statusConfig.label}
-                  </span>
-                </div>
-
-                {/* Info grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-center gap-3 bg-secondary/40 rounded-2xl p-3">
-                    <CalendarDays className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />
-                    <div>
-                      <p className="text-xs text-muted-foreground font-medium">Data e Hora</p>
-                      <p className="font-semibold text-sm capitalize">{dateLabel}</p>
-                      <p className="font-bold text-base" style={{ color: primaryColor }}>às {appt.time}</p>
+                  <div className="p-6 space-y-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-xl leading-tight">{appt.serviceName}</h3>
+                        <p className="text-sm text-muted-foreground mt-0.5">{BRAID_LABEL[appt.braidSize] ?? appt.braidSize}</p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap shrink-0 ${statusConfig.classes}`}>
+                        {statusConfig.label}
+                      </span>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-3 bg-secondary/40 rounded-2xl p-3">
-                    <User className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />
-                    <div>
-                      <p className="text-xs text-muted-foreground font-medium">Cliente</p>
-                      <p className="font-semibold text-sm">{appt.clientName}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {appt.bookingType === "pre_appointment" ? "Pré-agendamento" : "Agendamento"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex items-center gap-3 bg-secondary/40 rounded-2xl p-3">
+                        <CalendarDays className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Data e Hora</p>
+                          <p className="font-semibold text-sm capitalize">{dateLabel}</p>
+                          <p className="font-bold text-base" style={{ color: primaryColor }}>às {appt.time}</p>
+                        </div>
+                      </div>
 
-                {/* Payment summary */}
-                <div className="rounded-2xl border border-border overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-secondary/30">
-                    <CreditCard className="w-4 h-4" style={{ color: primaryColor }} />
-                    <span className="text-sm font-bold">Resumo do Pagamento</span>
-                  </div>
-                  <div className="p-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Valor do serviço</span>
-                      <span className="font-bold">{formatCurrency(appt.servicePrice)}</span>
+                      <div className="flex items-center gap-3 bg-secondary/40 rounded-2xl p-3">
+                        <User className="w-5 h-5 shrink-0" style={{ color: primaryColor }} />
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Cliente</p>
+                          <p className="font-semibold text-sm">{appt.clientName}</p>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            {appt.bookingType === "pre_appointment" ? "Pré-agendamento" : "Agendamento"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    {appt.paidAmount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Já pago</span>
-                        <span className="font-bold text-emerald-600">− {formatCurrency(appt.paidAmount)}</span>
+
+                    <div className="rounded-2xl border border-border overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-secondary/30">
+                        <CreditCard className="w-4 h-4" style={{ color: primaryColor }} />
+                        <span className="text-sm font-bold">Resumo do Pagamento</span>
+                      </div>
+                      <div className="p-4 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Valor do serviço</span>
+                          <span className="font-bold">{formatCurrency(appt.servicePrice)}</span>
+                        </div>
+                        {appt.paidAmount > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Já pago</span>
+                            <span className="font-bold text-emerald-600">− {formatCurrency(appt.paidAmount)}</span>
+                          </div>
+                        )}
+                        <div className="border-t border-border/60 pt-2 flex justify-between">
+                          <span className="font-semibold text-sm">
+                            {isPaid ? "Total pago" : "Valor pendente"}
+                          </span>
+                          <span className="font-bold text-base" style={{ color: isPaid ? undefined : primaryColor }}>
+                            {isPaid ? formatCurrency(appt.servicePrice) : formatCurrency(remaining)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {appt.bookingType === "pre_appointment" && deadlineLabel && !isPaid && (
+                        <div className={`px-4 py-2 flex items-center gap-2 text-xs font-medium border-t border-border/60 ${isLatePay ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
+                          {isLatePay
+                            ? `Prazo do sinal expirou em ${deadlineLabel}`
+                            : `Pague o sinal até ${deadlineLabel} para garantir seu horário`}
+                        </div>
+                      )}
+                    </div>
+
+                    {isPaid ? (
+                      <div
+                        className="rounded-2xl p-4 flex items-center justify-center gap-2 font-bold text-sm"
+                        style={{ background: hexToRgba(primaryColor, 0.1), color: primaryColor }}
+                      >
+                        <CheckCircle className="w-5 h-5" />
+                        Pagamento inteiro realizado
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {appt.paymentStatus === "unpaid" && (
+                          <Button
+                            onClick={() => handlePay(appt, "deposit")}
+                            disabled={paying === appt.id}
+                            variant="outline"
+                            className="h-14 border-2 rounded-2xl text-base font-bold bg-transparent hover:bg-transparent hover:opacity-80"
+                            style={{ borderColor: primaryColor, color: primaryColor }}
+                          >
+                            <Wallet className="w-4 h-4 mr-2" />
+                            SINAL {formatCurrency(appt.depositAmount)}
+                          </Button>
+                        )}
+                        <Button
+                          onClick={() => handlePay(appt, "full")}
+                          disabled={paying === appt.id}
+                          className="h-14 rounded-2xl text-base font-bold text-primary-foreground hover:opacity-90"
+                          style={{ background: primaryColor }}
+                        >
+                          {appt.paymentStatus === "deposit_paid" ? "PAGAR RESTANTE " : "PAGAR INTEIRA "}
+                          {formatCurrency(remaining > 0 ? remaining : appt.servicePrice)}
+                        </Button>
                       </div>
                     )}
-                    <div className="border-t border-border/60 pt-2 flex justify-between">
-                      <span className="font-semibold text-sm">
-                        {isPaid ? "Total pago" : "Valor pendente"}
-                      </span>
-                      <span className="font-bold text-base" style={{ color: isPaid ? undefined : primaryColor }}>
-                        {isPaid ? formatCurrency(appt.servicePrice) : formatCurrency(remaining)}
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* Deadline warning for pre-appointments */}
-                  {appt.bookingType === "pre_appointment" && deadlineLabel && !isPaid && (
-                    <div className={`px-4 py-2 flex items-center gap-2 text-xs font-medium border-t border-border/60 ${isLatePay ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
-                      <Clock className="w-3.5 h-3.5 shrink-0" />
-                      {isLatePay
-                        ? `Prazo do sinal expirou em ${deadlineLabel}`
-                        : `Pague o sinal até ${deadlineLabel} para garantir seu horário`}
-                    </div>
-                  )}
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      Pagamento simulado para teste — em produção o gateway (Pix/Cartão) abrirá aqui.
+                    </p>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        )}
 
-                {/* Payment actions */}
-                {isPaid ? (
-                  <div
-                    className="rounded-2xl p-4 flex items-center justify-center gap-2 font-bold text-sm"
-                    style={{ background: hexToRgba(primaryColor, 0.1), color: primaryColor }}
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    Pagamento inteiro realizado
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {appt.paymentStatus === "unpaid" && (
-                      <Button
-                        onClick={() => handlePay(appt, "deposit")}
-                        disabled={paying === appt.id}
-                        variant="outline"
-                        className="h-14 border-2 rounded-2xl text-base font-bold bg-transparent hover:bg-transparent hover:opacity-80"
-                        style={{ borderColor: primaryColor, color: primaryColor }}
-                      >
-                        <Wallet className="w-4 h-4 mr-2" />
-                        SINAL {formatCurrency(appt.depositAmount)}
-                      </Button>
-                    )}
-                    <Button
-                      onClick={() => handlePay(appt, "full")}
-                      disabled={paying === appt.id}
-                      className="h-14 rounded-2xl text-base font-bold text-primary-foreground hover:opacity-90"
-                      style={{ background: primaryColor }}
-                    >
-                      {appt.paymentStatus === "deposit_paid" ? "PAGAR RESTANTE " : "PAGAR INTEIRA "}
-                      {formatCurrency(remaining > 0 ? remaining : appt.servicePrice)}
-                    </Button>
-                  </div>
-                )}
-
-                <p className="text-[11px] text-muted-foreground text-center">
-                  Pagamento simulado para teste — em produção o gateway (Pix/Cartão) abrirá aqui.
-                </p>
-              </div>
+        {/* History section */}
+        {hasPast && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <History className="w-5 h-5" style={{ color: primaryColor }} />
+              <h2 className="text-lg font-bold">Histórico</h2>
             </div>
-          );
-        })}
+            <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden divide-y divide-border">
+              {history.map((appt) => {
+                const dateLabel = format(parseISO(appt.date), "dd/MM/yyyy", { locale: ptBR });
+                const statusConfig = STATUS_CONFIG[appt.status] ?? { label: appt.status, classes: "bg-stone-100 text-stone-600 border-stone-300" };
+                const isPaid = appt.paymentStatus === "fully_paid";
+
+                return (
+                  <div key={appt.id} className="p-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{appt.serviceName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {dateLabel} às {appt.time} · {BRAID_LABEL[appt.braidSize] ?? appt.braidSize}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusConfig.classes}`}>
+                        {statusConfig.label}
+                      </span>
+                      {isPaid && (
+                        <span className="text-xs font-semibold text-emerald-600">
+                          {formatCurrency(appt.servicePrice)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
