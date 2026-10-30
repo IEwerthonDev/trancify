@@ -36,6 +36,8 @@ export const tenantsTable = pgTable("tenants", {
   infinitepayHandle: text("infinitepay_handle"),
   primaryColor: text("primary_color"),
   secondaryColor: text("secondary_color"),
+  // IANA timezone for interpreting appointment date/time; see api-server lib/time.ts
+  timezone: text("timezone").notNull().default("America/Sao_Paulo"),
 
   // Account status
   status: tenantStatusEnum("status").notNull().default("active"),
